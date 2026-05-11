@@ -1,0 +1,40 @@
+[radio]
+uri = "ip:192.168.1.10"
+sample_rate_hz = 1_000_000.0
+center_frequency_hz = 2_437_000_000.0
+buffer_size = 8192
+gain_db = 30.0
+gain_mode = "manual"
+
+[telemetry]
+csv_path = ""
+time_offset_s = 0.0
+use_ground_speed = true
+
+[estimator]
+carrier_frequency_hz = 2_437_000_000.0
+path_loss_exponent = 2.15
+initial_range_m = 180.0
+initial_closing_rate_mps = -3.0
+initial_effective_power_db = -6.0
+initial_covariance_diag = [625.0, 16.0, 36.0]
+process_noise_diag = [36.0, 4.0, 1.0]
+measurement_noise_diag = [9.0, 25.0]
+minimum_range_m = 1.0
+
+[alert]
+tti_threshold_s = 12.0
+min_closing_rate_mps = 2.0
+min_confidence = 0.55
+consecutive_hits = 3
+cooldown_s = 5.0
+clear_factor = 1.35
+
+[simulation]
+steps = 30
+dt_s = 0.5
+start_range_m = 220.0
+end_range_m = 25.0
+effective_power_db = -6.0
+path_loss_exponent = 2.15
+noise_std = 0.0005
