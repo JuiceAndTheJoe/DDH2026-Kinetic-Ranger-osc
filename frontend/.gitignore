@@ -1,39 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.venv/
-venv/
-
-# Build artifacts
-build/
-dist/
-htmlcov/
-coverage.xml
-
-# Local data and logs
-artifacts/
-logs/
-*.log
-*.jsonl
-*.csv
-*.npy
-*.npz
-
-# OS / editor
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
 # dependencies
 /node_modules
 /.pnp
@@ -55,4 +21,3 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
