@@ -6,17 +6,34 @@ import SignalGraph from './components/SignalGraph';
 import SimulationControls from './components/SimulationControls';
 import ThreatBanner from './components/ThreatBanner';
 import { RadarWebSocket } from './lib/websocket';
-import type { ConnectionState, RadarPayload } from './lib/types';
+import type { ConnectionState, HistoryPoint, RadarPayload } from './lib/types';
 
 const WS_URL = 'ws://localhost:8000/ws/radar';
+const MAX_HISTORY = 60;
 
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [payload, setPayload] = useState<RadarPayload | null>(null);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
   const wsRef = useRef<RadarWebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new RadarWebSocket(WS_URL, setPayload, setConnectionState);
+    const ws = new RadarWebSocket(
+      WS_URL,
+      (nextPayload) => {
+        setPayload(nextPayload);
+        const target = nextPayload.targets[0];
+        if (!target) {
+          return;
+        }
+
+        setHistory((prev) => {
+          const next = [...prev, { t: Date.now() / 1000, rssi: target.rssi_db }];
+          return next.slice(-MAX_HISTORY);
+        });
+      },
+      setConnectionState,
+    );
     wsRef.current = ws;
     ws.connect();
     return () => {
@@ -41,7 +58,7 @@ export default function App() {
             targets={payload?.targets ?? []}
             timeS={payload?.time_s ?? 0}
           />
-          <SignalGraph targets={payload?.targets ?? []} />
+          <SignalGraph history={history} />
           <SimulationControls />
         </div>
       </div>

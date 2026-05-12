@@ -1,8 +1,12 @@
 /** Wire types for the /ws/radar WebSocket payload. Must stay in sync with api/schemas.py. */
 
-export type ThreatLevel = 'CRITICAL' | 'HIGH' | 'LOW' | 'NONE';
+export type ThreatLevel = "CRITICAL" | "HIGH" | "LOW" | "NONE";
 
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type ConnectionState =
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
 
 export interface ReceiverInfo {
   id: string;
@@ -25,6 +29,11 @@ export interface TargetState {
   display: TargetDisplay;
 }
 
+export interface HistoryPoint {
+  t: number;
+  rssi: number;
+}
+
 export interface PayloadSummary {
   highest_threat: ThreatLevel;
   active_targets: number;
@@ -32,7 +41,7 @@ export interface PayloadSummary {
 }
 
 export interface RadarPayload {
-  mode: 'simulation';
+  mode: "simulation";
   time_s: number;
   receiver: ReceiverInfo;
   targets: TargetState[];

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import type { TargetState } from '../lib/types';
+import type { HistoryPoint } from '../lib/types';
 
 /**
  * TODO: Replace SVG sparkline with Recharts <LineChart> or Chart.js for production.
@@ -7,15 +6,9 @@ import type { TargetState } from '../lib/types';
  */
 
 interface Props {
-  targets: TargetState[];
+  history: HistoryPoint[];
 }
 
-interface HistoryPoint {
-  t: number;  // epoch seconds
-  rssi: number;
-}
-
-const MAX_HISTORY = 60;
 const RSSI_MIN = -110;
 const RSSI_MAX = -20;
 
@@ -32,18 +25,7 @@ function toSvgCoords(points: HistoryPoint[]): string {
     .join(' ');
 }
 
-export default function SignalGraph({ targets }: Props) {
-  const [history, setHistory] = useState<HistoryPoint[]>([]);
-
-  useEffect(() => {
-    if (targets.length === 0) return;
-    const rssi = targets[0].rssi_db;
-    setHistory((prev) => {
-      const next = [...prev, { t: Date.now() / 1000, rssi }];
-      return next.slice(-MAX_HISTORY);
-    });
-  }, [targets]);
-
+export default function SignalGraph({ history }: Props) {
   const points = toSvgCoords(history);
 
   return (

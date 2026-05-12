@@ -1,32 +1,46 @@
 # Kinetic Ranger
 
-Passive RF closure detection and rough time-to-impact estimation for a single AntSDR E200 receiver.
+Kinetic Ranger is an early-stage passive RF threat-detection prototype with:
 
-This repository is scaffolded for the hackathon MVP described in `plan-kineticRangerMvp.prompt.md`:
+- a Python backend package in `src/kinetic_ranger`
+- a FastAPI server that exposes a health endpoint and a simulation WebSocket
+- a React + TypeScript + Vite frontend in `frontend/`
+- simulation-first workflows, with optional live SDR support behind a separate capture layer
 
-- host-side processing on Linux
-- AntSDR E200 over Ethernet via IIO/libiio-compatible workflows
-- signal observables from IQ windows: RSSI, CFO/Doppler proxy, SNR, confidence
-- a lightweight estimator for range proxy, closing rate, and time-to-impact
-- conservative alerting and replayable experiment logs
+Right now, the repository is best thought of as an MVP scaffold that already runs end-to-end in simulation.
 
-## Current status
+## What currently works
 
-This is an **initial project scaffold** designed to let you:
+### Backend
 
-1. run simulation and replay flows before hardware is fully integrated,
-2. keep AntSDR-specific code behind a small capture interface,
-3. validate estimation and alerting logic with unit tests.
+- `python -m kinetic_ranger simulate` runs the synthetic approach simulation in the terminal
+- `python -m kinetic_ranger replay <observations.csv>` replays extracted observations from CSV
+- `python -m kinetic_ranger live --iterations 10` reads from an IIO-compatible receiver when the optional hardware dependency is installed
+- `python -m uvicorn kinetic_ranger.api.main:app --reload --port 8000` starts a FastAPI app with:
+  - `GET /health`
+  - `WS /ws/radar`
 
-The live-radio path is intentionally lightweight and assumes a Pluto-compatible IIO firmware path when using `pyadi-iio`.
+### Frontend
 
-## Quick start
+- `pnpm dev` starts the Vite dashboard
+- the UI connects to `ws://localhost:8000/ws/radar`
+- the radar view, metrics panel, threat banner, and RSSI history graph render live simulation frames
 
-### 1. Create a virtual environment
+### Tests
 
-Use any Python 3.11+ environment manager you like.
+- backend unit tests cover alerting, estimator logic, and feature extraction in `tests/`
 
-### 2. Install the package
+## Requirements
+
+- Python 3.11+
+- Node.js 20+
+- `pnpm` for frontend package management
+
+## Setup
+
+### Python environment
+
+From the repository root, create and activate a virtual environment however you prefer, then install the package:
 
 ```text
 pip install -e .[dev]
@@ -38,112 +52,117 @@ Optional extras:
 pip install -e .[dev,hardware,viz]
 ```
 
-### 3. Run the built-in simulation
+Use the `hardware` extra only if you want the live SDR path. The default development flow works without it.
+
+### Frontend dependencies
+
+From `frontend/`:
+
+```text
+pnpm install
+```
+
+## Running the project
+
+### Terminal simulation
+
+From the repository root:
 
 ```text
 python -m kinetic_ranger simulate
 ```
 
-### 4. Run the tests
+Useful variants:
 
 ```text
-pytest
+python -m kinetic_ranger simulate --log-dir logs
+python -m kinetic_ranger replay path\to\observations.csv
+python -m kinetic_ranger live --iterations 10
 ```
 
-## Web dashboard (FastAPI + Vite)
+### Dashboard
 
-Backend (simulation stream + health):
+Start the backend from the repository root:
 
 ```text
 python -m uvicorn kinetic_ranger.api.main:app --reload --port 8000
 ```
 
-Frontend (Vite + React):
+Start the frontend from `frontend/`:
 
 ```text
-cd frontend
-npm install
-npm run dev
+pnpm dev
 ```
 
-Expected local URLs:
+Local URLs:
 
-- Backend health: http://localhost:8000/health
-- Frontend: Vite dev server URL printed in the terminal
-- WebSocket: ws://localhost:8000/ws/radar
+- API health: <http://localhost:8000/health>
+- dashboard: usually <http://localhost:5173>
+- WebSocket feed: `ws://localhost:8000/ws/radar`
 
-## Default config
+## Configuration
 
-The default runtime settings live in `configs/default.toml`.
+Default runtime values live in `configs/default.toml`.
 
-Important values to calibrate once hardware is available:
+Key sections:
 
-- `radio.uri`
-- `radio.center_frequency_hz`
-- `radio.gain_db`
-- `estimator.initial_effective_power_db`
-- `estimator.path_loss_exponent`
-- `alert.tti_threshold_s`
+- `[radio]` — SDR URI, sample rate, tuning, gain
+- `[telemetry]` — CSV telemetry replay settings
+- `[estimator]` — EKF initial state and noise tuning
+- `[alert]` — alert thresholds and hysteresis
+- `[simulation]` — synthetic approach timing and noise parameters
 
-## Suggested workflow
+If you run commands from an unusual working directory, pass `--config` explicitly.
 
-1. start with `simulate` to verify the estimator loop,
-2. capture static test IQ from the E200,
-3. replay extracted observables against recorded telemetry,
-4. calibrate path-loss and alert thresholds,
-5. run controlled quadcopter approach tests.
-
-## Repository layout
+## Project layout
 
 ```text
 DDH2026/
 ├── configs/
 │   └── default.toml
+├── frontend/
+│   ├── package.json
+│   └── src/
+│       ├── App.tsx
+│       ├── components/
+│       └── lib/
 ├── src/
 │   └── kinetic_ranger/
-│       ├── __init__.py
-│       ├── __main__.py
+│       ├── api/
+│       ├── alerting/
+│       ├── estimation/
+│       ├── logging/
+│       ├── radio/
+│       ├── telemetry/
+│       ├── ui/
 │       ├── cli.py
 │       ├── config.py
-│       ├── models.py
-│       ├── alerting/
-│       │   ├── __init__.py
-│       │   └── rules.py
-│       ├── estimation/
-│       │   ├── __init__.py
-│       │   └── ekf.py
-│       ├── logging/
-│       │   ├── __init__.py
-│       │   └── session_logger.py
-│       ├── radio/
-│       │   ├── __init__.py
-│       │   ├── capture.py
-│       │   └── features.py
-│       ├── telemetry/
-│       │   ├── __init__.py
-│       │   └── ingest.py
-│       └── ui/
-│           ├── __init__.py
-│           └── dashboard.py
-├── tests/
-│   ├── test_alerting.py
-│   ├── test_estimator.py
-│   └── test_features.py
-├── plan-kineticRangerMvp.prompt.md
-├── pyproject.toml
-└── README.md
+│       └── models.py
+└── tests/
 ```
 
-## Hardware notes
+## Notes about current limitations
 
-- AntSDR E200 docs indicate support for IIO/libiio and UHD workflows over Ethernet.
-- For the hackathon MVP, prefer **IIO/libiio first** and keep FPGA changes out of scope.
-- Use **fixed gain** for ranging experiments whenever possible; AGC can make RSSI-based estimation much less stable.
-- Treat time-to-impact as a **confidence-banded estimate**, not ground truth.
+- the frontend simulation controls are currently UI-only and are not wired to backend endpoints yet
+- the backend WebSocket serves simulated data only
+- the live SDR path is optional and assumes an IIO-compatible device workflow
+- the frontend currently assumes the backend is available at `localhost:8000`
 
-## Next steps
+## Development checks
 
-- replace the simulation capture with a tested E200 acquisition path,
-- add replay tooling for real telemetry logs,
-- collect calibration data for path-loss and alert thresholds,
-- optionally add a lightweight dashboard once live testing begins.
+From the repository root:
+
+```text
+pytest
+```
+
+From `frontend/`:
+
+```text
+pnpm lint
+pnpm build
+```
+
+## Frontend docs
+
+See `frontend/README.md` for frontend-specific notes.

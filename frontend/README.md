@@ -1,73 +1,60 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This folder contains the Vite + React + TypeScript dashboard for Kinetic Ranger.
 
-Currently, two official plugins are available:
+## What it does today
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- connects to `ws://localhost:8000/ws/radar`
+- shows the threat banner, radar display, metrics, and RSSI history
+- renders simulated backend data in real time
 
-## React Compiler
+## What it does not do yet
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- the controls in `SimulationControls.tsx` are still local UI state only
+- there are no REST endpoints yet for starting, pausing, resetting, or reconfiguring the simulation
 
-## Expanding the ESLint configuration
+## Install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+From this folder:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+pnpm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Run
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Start the backend first from the repository root:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+python -m uvicorn kinetic_ranger.api.main:app --reload --port 8000
 ```
+
+Then start the frontend from this folder:
+
+```text
+pnpm dev
+```
+
+Useful commands:
+
+```text
+pnpm lint
+pnpm build
+pnpm preview
+```
+
+## Important implementation notes
+
+- the app currently hardcodes the backend WebSocket URL in `src/App.tsx`
+- TypeScript is configured with `erasableSyntaxOnly`, so avoid TypeScript features that require emitted runtime transforms, such as constructor parameter properties
+- the dashboard expects simulation payloads shaped like `frontend/src/lib/types.ts`, which must stay aligned with `src/kinetic_ranger/api/schemas.py`
+
+## Main files
+
+- `src/App.tsx` — top-level layout and WebSocket hookup
+- `src/components/RadarView.tsx` — radar-style visualization
+- `src/components/MetricsPanel.tsx` — target metrics
+- `src/components/SignalGraph.tsx` — RSSI history graph
+- `src/components/SimulationControls.tsx` — simulation control scaffold
+- `src/lib/types.ts` — frontend wire types
+- `src/lib/websocket.ts` — reconnecting WebSocket client
