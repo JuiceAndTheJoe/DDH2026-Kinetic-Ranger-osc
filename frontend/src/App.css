@@ -179,35 +179,54 @@
 .radar-scope {
   position: relative;
   flex: 1;
-  min-height: 360px;
   margin-top: 12px;
+  min-height: 500px;
   border-radius: 18px;
-  background: radial-gradient(circle at center, rgba(40, 115, 190, 0.15), rgba(9, 21, 36, 0.85));
-  border: 1px solid rgba(55, 90, 140, 0.35);
   overflow: hidden;
+  background: transparent;
+  border: 1px solid rgba(55, 90, 140, 0.35);
 }
 
-.radar-scope::before {
-  content: '';
-  position: absolute;
-  inset: -40%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(80, 255, 215, 0.0) 0deg,
-    rgba(80, 255, 215, 0.12) 40deg,
-    rgba(80, 255, 215, 0.0) 80deg
-  );
-  animation: sweep 6s linear infinite;
-  transform-origin: center;
-  pointer-events: none;
-}
-
-.radar-scope::after {
-  content: '';
+.radar-map {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(12, 26, 46, 0.2), rgba(5, 9, 16, 0.9));
+  z-index: 0;
+}
+
+.radar-map__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.radar-map__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(3, 10, 20, 0.32);
+}
+
+.radar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   pointer-events: none;
+}
+
+.radar-overlay::before {
+  content: '';
+  position: absolute;
+  inset: -28%;
+  z-index: 3;
+  background: conic-gradient(
+    from 0deg,
+    rgba(80, 255, 215, 0) 0deg,
+    rgba(80, 255, 215, 0.18) 34deg,
+    rgba(80, 255, 215, 0) 74deg
+  );
+  transform-origin: center;
+  animation: sweep 6s linear infinite;
 }
 
 .radar-rings {
@@ -215,7 +234,9 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.7;
+  z-index: 4;
+  opacity: 0.78;
+  pointer-events: none;
 }
 
 .radar-blip {
@@ -228,25 +249,40 @@
   background: var(--accent);
   box-shadow: 0 0 10px rgba(80, 255, 215, 0.8);
   animation: blip 1.8s ease-in-out infinite;
+  z-index: 5;
+}
+
+.radar-blip::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  opacity: 0.3;
+  animation: ping 2.2s ease-out infinite;
 }
 
 .radar-blip--critical {
   background: var(--danger);
+  color: var(--danger);
   box-shadow: 0 0 12px rgba(255, 82, 82, 0.9);
 }
 
 .radar-blip--high {
   background: var(--warn);
+  color: var(--warn);
   box-shadow: 0 0 12px rgba(254, 215, 102, 0.8);
 }
 
 .radar-blip--low {
   background: #5ac4ff;
+  color: #5ac4ff;
   box-shadow: 0 0 12px rgba(90, 196, 255, 0.7);
 }
 
 .radar-blip--none {
   background: #8ca5c5;
+  color: #8ca5c5;
   box-shadow: 0 0 8px rgba(140, 165, 197, 0.6);
 }
 
@@ -254,13 +290,48 @@
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  margin-top: -5px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  margin-top: -6px;
   border-radius: 50%;
   background: #d9f1ff;
   box-shadow: 0 0 12px rgba(217, 241, 255, 0.8);
+  z-index: 6;
+}
+
+.radar-origin__label {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  color: #b8d5f5;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(6, 16, 28, 0.95);
+}
+
+.radar-status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(6, 12, 22, 0.7);
+  border: 1px solid rgba(70, 110, 160, 0.45);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.radar-status__sep {
+  opacity: 0.6;
 }
 
 .metrics-panel .target-row {
@@ -498,5 +569,20 @@
   100% {
     transform: scale(1);
     opacity: 0.9;
+  }
+}
+
+@keyframes ping {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.35;
+  }
+  70% {
+    transform: scale(1.55);
+    opacity: 0.05;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
   }
 }
