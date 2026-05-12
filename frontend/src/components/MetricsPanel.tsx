@@ -1,0 +1,73 @@
+import type { TargetState } from '../lib/types';
+
+interface Props {
+  targets: TargetState[];
+  timeS: number;
+}
+
+function formatTtc(ttc: number): string {
+  return ttc < 0 ? '—' : `${ttc.toFixed(1)}s`;
+}
+
+export default function MetricsPanel({ targets, timeS }: Props) {
+  return (
+    <div className="panel metrics-panel">
+      <div className="panel-header">
+        SIGNAL METRICS
+        <span className="elapsed-time">T+{timeS.toFixed(1)}s</span>
+      </div>
+
+      {targets.length === 0 ? (
+        <p className="no-targets">No targets detected</p>
+      ) : (
+        targets.map((t) => (
+          <div key={t.id} className="target-row">
+            <div className="target-id">{t.id.toUpperCase()}</div>
+            <div className="metrics-grid">
+              <div className="metric">
+                <span className="metric-label">RSSI</span>
+                <span className="metric-value">{t.rssi_db.toFixed(1)} dBm</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">SLOPE</span>
+                <span
+                  className="metric-value"
+                  data-sign={t.rssi_slope_db_s > 0 ? 'pos' : 'neg'}
+                >
+                  {t.rssi_slope_db_s > 0 ? '+' : ''}
+                  {t.rssi_slope_db_s.toFixed(2)} dB/s
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">TTC</span>
+                <span className="metric-value">{formatTtc(t.estimated_ttc_s)}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">CONFIDENCE</span>
+                <span className="metric-value">
+                  {(t.confidence * 100).toFixed(0)}%
+                  <span
+                    className="conf-bar"
+                    style={{ width: `${(t.confidence * 100).toFixed(0)}%` }}
+                  />
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">THREAT</span>
+                <span className={`threat-badge threat-level--${t.threat_level.toLowerCase()}`}>
+                  {t.threat_level}
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">STATUS</span>
+                <span className="metric-value" data-closing={t.closing}>
+                  {t.closing ? '▼ CLOSING' : '— STATIC'}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}

@@ -50,6 +50,28 @@ python -m kinetic_ranger simulate
 pytest
 ```
 
+## Web dashboard (FastAPI + Vite)
+
+Backend (simulation stream + health):
+
+```text
+python -m uvicorn kinetic_ranger.api.main:app --reload --port 8000
+```
+
+Frontend (Vite + React):
+
+```text
+cd frontend
+npm install
+npm run dev
+```
+
+Expected local URLs:
+
+- Backend health: http://localhost:8000/health
+- Frontend: Vite dev server URL printed in the terminal
+- WebSocket: ws://localhost:8000/ws/radar
+
 ## Default config
 
 The default runtime settings live in `configs/default.toml`.
