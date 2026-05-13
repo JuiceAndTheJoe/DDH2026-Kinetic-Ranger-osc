@@ -447,6 +447,14 @@
   opacity: 0.6;
 }
 
+.radar-status__warn {
+  color: #f5a623;
+}
+
+.radar-coords {
+  color: #7aaed6;
+}
+
 .metrics-panel .target-row {
   border-top: 1px solid rgba(80, 120, 160, 0.25);
   padding-top: 12px;

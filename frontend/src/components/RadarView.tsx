@@ -54,6 +54,7 @@ export default function RadarView({ targets }: Props) {
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('pending');
   const [position, setPosition] = useState(FALLBACK_POSITION);
+  const [accuracyM, setAccuracyM] = useState<number | null>(null);
   const [maxRangeM, setMaxRangeM] = useState(DEFAULT_RANGE_M);
   // Heading-up: the compass direction (deg, 0–359) that the operator is facing.
   // When non-zero, the map, rings, cardinal letters and blip placement all
@@ -101,33 +102,31 @@ export default function RadarView({ targets }: Props) {
   const headingRef = useRef(heading);
   headingRef.current = heading;
 
-  // Geolocation
+  // Geolocation — continuous watch so the map follows operator movement.
   useEffect(() => {
-    let cancelled = false;
     if (!navigator.geolocation) {
       setLocationStatus('fallback');
       return undefined;
     }
 
-    navigator.geolocation.getCurrentPosition(
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => {
-        if (cancelled) return;
         setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setAccuracyM(pos.coords.accuracy);
         setLocationStatus('acquired');
       },
       () => {
-        if (cancelled) return;
         setLocationStatus('fallback');
       },
       {
-        enableHighAccuracy: false,
-        timeout: 8000,
-        maximumAge: 60000,
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 15000,
       },
     );
 
     return () => {
-      cancelled = true;
+      navigator.geolocation.clearWatch(watchId);
     };
   }, []);
 
@@ -217,6 +216,24 @@ export default function RadarView({ targets }: Props) {
     );
   }, [maxRangeM, position, heading, mapStatus]);
 
+  function handleRecenter() {
+    const m = mapRef.current;
+    if (!m || mapStatus !== 'ready') return;
+    const pos = positionRef.current;
+    const range = rangeRef.current;
+    const bear = headingRef.current;
+    const { dLat, dLng } = metersToLatLngDelta(pos.lat, range);
+    m.fitBounds(
+      [
+        [pos.lng - dLng, pos.lat - dLat],
+        [pos.lng + dLng, pos.lat + dLat],
+      ],
+      { padding: 0, animate: true, duration: 400, bearing: bear },
+    );
+  }
+
+  const lowAccuracy = locationStatus === 'acquired' && accuracyM !== null && accuracyM > 100;
+
   const mapStatusLabel =
     mapStatus === 'missing-token'
       ? 'Mapbox token missing'
@@ -228,7 +245,7 @@ export default function RadarView({ targets }: Props) {
 
   const locationStatusLabel =
     locationStatus === 'acquired'
-      ? 'Location acquired'
+      ? `${position.lat.toFixed(5)}°, ${position.lng.toFixed(5)}°  ±${Math.round(accuracyM ?? 0)}m`
       : locationStatus === 'fallback'
         ? 'Location unavailable, using fallback'
         : 'Location pending';
@@ -315,6 +332,16 @@ export default function RadarView({ targets }: Props) {
               ↺ N
             </button>
           </div>
+          <button
+            type="button"
+            className="radar-heading-reset"
+            onClick={handleRecenter}
+            disabled={mapStatus !== 'ready'}
+            title="Recenter map on current GPS position"
+            aria-label="Recenter map on current GPS position"
+          >
+            ⊙ RX
+          </button>
         </div>
       </div>
 
@@ -402,13 +429,23 @@ export default function RadarView({ targets }: Props) {
           </div>
         </div>
 
-        {(mapStatus !== 'ready' || locationStatus !== 'acquired') && (
+        {(mapStatus !== 'ready' || locationStatus !== 'acquired' || lowAccuracy) && (
           <div className="radar-status">
             {mapStatus !== 'ready' && <span>{mapStatusLabel}</span>}
-            {mapStatus !== 'ready' && locationStatus !== 'acquired' && (
+            {mapStatus !== 'ready' && (locationStatus !== 'acquired' || lowAccuracy) && (
               <span className="radar-status__sep">|</span>
             )}
             {locationStatus !== 'acquired' && <span>{locationStatusLabel}</span>}
+            {locationStatus === 'acquired' && (
+              <>
+                {lowAccuracy && (
+                  <span className="radar-status__warn">
+                    ⚠ Low accuracy ±{Math.round(accuracyM!)}m
+                  </span>
+                )}
+                <span className="radar-coords">{locationStatusLabel}</span>
+              </>
+            )}
           </div>
         )}
       </div>
