@@ -23,27 +23,33 @@ export default function SimulationControls() {
   const [simStatus, setSimStatus] = useState<SimulationStatus | null>(null);
   const [notInSim, setNotInSim] = useState(false);
 
+  // Sync all form controls AND meta-state from a backend SimulationStatus.
+  // Call this after any operation that may have changed config values (apply,
+  // mount). Do NOT call this for pause/start/reset — those don't change config.
+  function syncControls(s: SimulationStatus) {
+    setSimStatus(s);
+    setIsRunning(!s.paused);
+    setDroneCount(s.drone_count);
+    setSpeed(s.speed_mps);
+    setAltitude(s.altitude_m);
+    setScenario(s.scenario as ScenarioType);
+    setBursty(s.bursty);
+    setStartDistance(s.start_range_m);
+    setNoiseLevel(s.noise_std);
+    setNotInSim(false);
+  }
+
   // Sync state from backend on mount
   useEffect(() => {
     getSimulationStatus()
-      .then((s) => {
-        setSimStatus(s);
-        setIsRunning(!s.paused);
-        setDroneCount(s.drone_count);
-        setSpeed(s.speed_mps);
-        setAltitude(s.altitude_m);
-        setScenario(s.scenario as ScenarioType);
-        setBursty(s.bursty);
-        setStartDistance(s.start_range_m);
-        setNoiseLevel(s.noise_std);
-        setNotInSim(false);
-      })
+      .then(syncControls)
       .catch(() => {
         // 409 = source is not sim; show a note but keep UI rendered
         setNotInSim(true);
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Used by pause/start/reset — config values unchanged, only meta-state updates.
   function applyStatus(s: SimulationStatus) {
     setSimStatus(s);
     setIsRunning(!s.paused);
@@ -94,7 +100,8 @@ export default function SimulationControls() {
         scenario,
         bursty,
       });
-      applyStatus(s);
+      // Sync controls from backend-confirmed (possibly clamped) values.
+      syncControls(s);
       setStatusMsg('Config applied — simulation restarted.');
     } catch (e) {
       setStatusMsg(e instanceof Error ? e.message : String(e));
