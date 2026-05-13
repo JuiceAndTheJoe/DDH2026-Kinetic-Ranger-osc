@@ -214,21 +214,6 @@
   pointer-events: none;
 }
 
-.radar-overlay::before {
-  content: '';
-  position: absolute;
-  inset: -28%;
-  z-index: 3;
-  background: conic-gradient(
-    from 0deg,
-    rgba(80, 255, 215, 0) 0deg,
-    rgba(80, 255, 215, 0.18) 34deg,
-    rgba(80, 255, 215, 0) 74deg
-  );
-  transform-origin: center;
-  animation: sweep 6s linear infinite;
-}
-
 .radar-rings {
   position: absolute;
   inset: 0;
@@ -522,15 +507,6 @@
 
   .sim-controls .controls-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@keyframes sweep {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 }
 
