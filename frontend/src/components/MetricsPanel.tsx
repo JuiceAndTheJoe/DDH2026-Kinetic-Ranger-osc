@@ -9,6 +9,13 @@ function formatTtc(ttc: number): string {
   return ttc < 0 ? '—' : `${ttc.toFixed(1)}s`;
 }
 
+const COMPASS_POINTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function compassFor(bearingDeg: number): string {
+  const normalized = ((bearingDeg % 360) + 360) % 360;
+  const index = Math.round(normalized / 45) % 8;
+  return COMPASS_POINTS[index];
+}
+
 export default function MetricsPanel({ targets, timeS }: Props) {
   return (
     <div className="panel metrics-panel">
@@ -24,6 +31,24 @@ export default function MetricsPanel({ targets, timeS }: Props) {
           <div key={t.id} className="target-row">
             <div className="target-id">{t.id.toUpperCase()}</div>
             <div className="metrics-grid">
+              <div className="metric">
+                <span className="metric-label">RANGE</span>
+                <span className="metric-value">{t.range_m.toFixed(0)} m</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">BEARING</span>
+                <span className="metric-value">
+                  <span
+                    className="bearing-arrow"
+                    style={{ transform: `rotate(${t.display.bearing_deg}deg)` }}
+                    aria-hidden
+                  >
+                    ↑
+                  </span>
+                  {t.display.bearing_deg.toFixed(0)}°
+                  <span className="bearing-cardinal">{compassFor(t.display.bearing_deg)}</span>
+                </span>
+              </div>
               <div className="metric">
                 <span className="metric-label">RSSI</span>
                 <span className="metric-value">{t.rssi_db.toFixed(1)} dBm</span>
