@@ -192,6 +192,7 @@ class _DroneState:
     alert_engine: AlertRuleEngine
     bearing_base_deg: float  # evenly-distributed compass bearing for this drone
     loop_duration_s: float
+    altitude_m: float        # stored for future display / GPS validation
 
 
 # ---------------------------------------------------------------------------
@@ -210,18 +211,29 @@ class SimulationService:
         self._last_frames: list[Frame] | None = None
 
     def _make_sim_config(self, drone_index: int) -> SimulationConfig:
-        """Return a SimulationConfig with a per-drone start-range offset."""
+        """Return a SimulationConfig with per-drone range offset and speed-derived steps."""
         base = self._config.simulation
         mult = _RANGE_MULTIPLIERS[drone_index % len(_RANGE_MULTIPLIERS)]
+        perturbed_start = base.start_range_m * mult
+        # TODO: use base.scenario ("flyby", "hover") to change the range profile here
+        # instead of a straight linear approach. For now only "direct_approach" is implemented.
+        # Derive the number of steps so the drone closes at speed_mps.
+        # Each step advances dt_s seconds; range closes by speed_mps * dt_s per step.
+        total_range = max(perturbed_start - base.end_range_m, 1.0)
+        steps = max(5, int(round(total_range / (max(base.speed_mps, 0.1) * base.dt_s))))
         return SimulationConfig(
-            steps=base.steps,
+            steps=steps,
             dt_s=base.dt_s,
-            start_range_m=base.start_range_m * mult,
+            start_range_m=perturbed_start,
             end_range_m=base.end_range_m,
             effective_power_db=base.effective_power_db,
             path_loss_exponent=base.path_loss_exponent,
             noise_std=base.noise_std,
             drone_count=base.drone_count,
+            speed_mps=base.speed_mps,
+            altitude_m=base.altitude_m,
+            scenario=base.scenario,
+            bursty=base.bursty,
         )
 
     def _make_drone(self, i: int, total: int) -> _DroneState:
@@ -238,6 +250,7 @@ class SimulationService:
             alert_engine=AlertRuleEngine(self._config.alert),
             bearing_base_deg=bearing_base,
             loop_duration_s=len(windows) * self._config.simulation.dt_s,
+            altitude_m=self._config.simulation.altitude_m,
         )
 
     async def next_frames(self) -> list[Frame]:

@@ -108,17 +108,25 @@ class SimulationConfigRequest(BaseModel):
     noise_std: float | None = None
     steps: int | None = None
     dt_s: float | None = None
-    # Future fields — accepted in schema, not yet applied to backend config
     drone_count: int | None = None
     speed_mps: float | None = None
     altitude_m: float | None = None
+    scenario: str | None = None
+    # TODO: implement bursty RF transmissions in SimulatedApproachCapture
+    bursty: bool | None = None
 
 
 class SimulationStatus(BaseModel):
     paused: bool
     drone_count: int
+    speed_mps: float
+    altitude_m: float
+    scenario: str
+    bursty: bool
     start_range_m: float
     end_range_m: float
     noise_std: float
     steps: int
     dt_s: float
+    # Approximate approach duration for drone-0 (internal per-drone steps may differ).
+    estimated_duration_s: float

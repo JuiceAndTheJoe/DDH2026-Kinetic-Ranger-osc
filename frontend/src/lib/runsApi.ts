@@ -95,5 +95,7 @@ export const simulationConfig = (fields: {
   drone_count?: number;
   speed_mps?: number;
   altitude_m?: number;
+  scenario?: string;
+  bursty?: boolean;
 }): Promise<SimulationStatus> =>
   request("POST", "/simulation/config", fields);

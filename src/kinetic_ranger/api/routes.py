@@ -296,14 +296,25 @@ def _require_sim(request: Request) -> "SimulationService":
 
 def _sim_status(source: "SimulationService", request: Request) -> SimulationStatus:
     cfg = request.app.state.config.simulation
+    # Derived approach duration for drone-0 (canonical multiplier = 1.0).
+    # Internal per-drone steps differ for multi-drone because each drone has a
+    # range-multiplier applied to start_range_m.
+    est_duration_s = round(
+        max(cfg.start_range_m - cfg.end_range_m, 0.0) / max(cfg.speed_mps, 0.1), 1
+    )
     return SimulationStatus(
         paused=source.paused,
         drone_count=cfg.drone_count,
+        speed_mps=cfg.speed_mps,
+        altitude_m=cfg.altitude_m,
+        scenario=cfg.scenario,
+        bursty=cfg.bursty,
         start_range_m=cfg.start_range_m,
         end_range_m=cfg.end_range_m,
         noise_std=cfg.noise_std,
         steps=cfg.steps,
         dt_s=cfg.dt_s,
+        estimated_duration_s=est_duration_s,
     )
 
 
@@ -332,19 +343,36 @@ def simulation_control(body: SimulationControlRequest, request: Request) -> Simu
 def simulation_config_update(body: SimulationConfigRequest, request: Request) -> SimulationStatus:
     _require_sim(request)
     cfg = request.app.state.config.simulation
-    if body.start_range_m is not None:
-        cfg.start_range_m = body.start_range_m
-    if body.end_range_m is not None:
-        cfg.end_range_m = body.end_range_m
+    # Pre-compute the effective values so we can validate BEFORE mutating the
+    # config. This keeps the config clean if validation fails.
+    new_start = max(10.0, min(2000.0, body.start_range_m)) if body.start_range_m is not None else cfg.start_range_m
+    new_end = max(1.0, min(500.0, body.end_range_m)) if body.end_range_m is not None else cfg.end_range_m
+    if new_start <= new_end:
+        raise HTTPException(
+            status_code=422,
+            detail=f"start_range_m ({new_start}) must be greater than end_range_m ({new_end})",
+        )
+    # Validation passed — apply all changes.
+    cfg.start_range_m = new_start
+    cfg.end_range_m = new_end
     if body.noise_std is not None:
-        cfg.noise_std = body.noise_std
+        cfg.noise_std = max(0.0, min(0.05, body.noise_std))
     if body.steps is not None:
-        cfg.steps = body.steps
+        cfg.steps = max(5, min(500, body.steps))
     if body.dt_s is not None:
-        cfg.dt_s = body.dt_s
+        cfg.dt_s = max(0.1, min(5.0, body.dt_s))
     if body.drone_count is not None:
         cfg.drone_count = max(1, min(10, body.drone_count))
-    # speed_mps, altitude_m: accepted in schema, not yet applied to sim config
+    if body.speed_mps is not None:
+        cfg.speed_mps = max(1.0, min(60.0, body.speed_mps))
+    if body.altitude_m is not None:
+        # 150 m is the practical upper bound: above this the RSSI slope at default
+        # speed falls below the EKF's tti_slope_floor and TTC is never reported.
+        cfg.altitude_m = max(0.0, min(150.0, body.altitude_m))
+    if body.scenario is not None:
+        cfg.scenario = body.scenario
+    if body.bursty is not None:
+        cfg.bursty = body.bursty
     request.app.state.frame_source = SimulationService(request.app.state.config)
     source = request.app.state.frame_source
     logger.info(

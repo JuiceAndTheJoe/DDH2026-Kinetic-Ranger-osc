@@ -81,6 +81,10 @@ class SimulationConfig:
     path_loss_exponent: float = 2.15
     noise_std: float = 0.0005
     drone_count: int = 1
+    speed_mps: float = 12.0
+    altitude_m: float = 80.0
+    scenario: str = "direct_approach"
+    bursty: bool = False
 
 
 @dataclass(slots=True)

@@ -713,6 +713,13 @@
   padding-top: 10px;
 }
 
+.ctrl-hint {
+  font-size: 9px;
+  color: #4a6a8a;
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+}
+
 .ctrl-checkbox {
   width: 18px;
   height: 18px;
