@@ -1,6 +1,9 @@
-/** Wire types for the /ws/radar WebSocket payload. Must stay in sync with api/schemas.py. */
+/** Wire types for the /ws/radar WebSocket payload and REST API.
+ *  Must stay in sync with src/kinetic_ranger/api/schemas.py. */
 
 export type ThreatLevel = "CRITICAL" | "HIGH" | "LOW" | "NONE";
+
+export type Mode = "simulation" | "replay" | "live";
 
 export type ConnectionState =
   | "connecting"
@@ -23,6 +26,7 @@ export interface TargetState {
   rssi_db: number;
   rssi_slope_db_s: number;
   estimated_ttc_s: number; // -1.0 when time-to-contact is unavailable
+  range_m: number;
   confidence: number;
   threat_level: ThreatLevel;
   closing: boolean;
@@ -41,9 +45,60 @@ export interface PayloadSummary {
 }
 
 export interface RadarPayload {
-  mode: "simulation";
+  mode: Mode;
   time_s: number;
   receiver: ReceiverInfo;
   targets: TargetState[];
   summary: PayloadSummary;
+  source_run_id?: string | null;
+  replay_index?: number | null;
+  replay_tick_count?: number | null;
+  paused?: boolean;
+}
+
+// ----- REST response shapes ---------------------------------------------------
+
+export type Severity = "critical" | "warning" | "info" | "none";
+
+export interface RunSummary {
+  run_id: string;
+  mode: string;
+  started_at_s: number;
+  duration_s: number;
+  tick_count: number;
+  peak_severity: Severity;
+}
+
+export interface TimelinePoint {
+  frame: number;
+  time_s: number;
+  threat_level: ThreatLevel;
+  alert_active: boolean;
+}
+
+export interface RecordingStatus {
+  recording: boolean;
+  run_id: string | null;
+  started_at_s: number | null;
+  tick_count: number;
+}
+
+export interface RecordingStartResponse {
+  run_id: string;
+  started_at_s: number;
+}
+
+export interface RecordingStopResponse {
+  run_id: string;
+  tick_count: number;
+  duration_s: number;
+  path: string;
+}
+
+export interface SourceState {
+  mode: Mode;
+  source_run_id: string | null;
+  replay_index: number | null;
+  replay_tick_count: number | null;
+  paused: boolean;
 }

@@ -3,30 +3,49 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TargetState } from '../lib/types';
 
-/**
- * TODO (PixiJS): Import Application and Graphics from 'pixi.js'.
- * Replace the SVG placeholder with:
- *   const app = new Application();
- *   await app.init({ canvas: canvasRef.current, resizeTo: canvasRef.current.parentElement });
- * Use Graphics to draw sweep rings and a rotating sweep line each tick.
- * On every `targets` prop change, update blip sprite positions:
- *   x = cx + radial_ttc_norm * radius * Math.sin(bearing_deg * DEG2RAD)
- *   y = cy - radial_ttc_norm * radius * Math.cos(bearing_deg * DEG2RAD)
- * Vite handles PixiJS v8 ESM natively — no CRACO / webpack config needed.
- * Return app.destroy(true) from the useEffect cleanup.
- */
-
 interface Props {
   targets: TargetState[];
 }
 
-const RINGS = [0.25, 0.5, 0.75, 1.0];
+/**
+ * Default radar range in meters at startup. The four concentric rings
+ * represent 25%, 50%, 75%, 100% of the current range, and the map auto-zooms
+ * so its visible radius matches the outer ring — distances on the map and
+ * on the radar are 1:1.
+ *
+ * The range is operator-controlled via a slider; the constant below is just
+ * the initial value.
+ */
+const DEFAULT_RANGE_M = 2000;
+const MIN_RANGE_M = 100;
+const MAX_RANGE_M = 5000;
+const RANGE_STEP_M = 100;
+const RING_FRACTIONS = [0.25, 0.5, 0.75, 1.0];
 const DEG2RAD = Math.PI / 180;
-const MAP_STYLE = 'mapbox://styles/mapbox/satellite-streets-v12';
+// Abstract dark vector style — roads, parks, water, country boundaries, no
+// photographic buildings. Swap candidates if you want a different look:
+//   'mapbox://styles/mapbox/light-v11'           — abstract light
+//   'mapbox://styles/mapbox/navigation-night-v1' — even sparser, navigation-focused
+//   'mapbox://styles/mapbox/satellite-streets-v12' — original photographic
+const MAP_STYLE = 'mapbox://styles/mapbox/dark-v11';
 const FALLBACK_POSITION = { lat: 59.3293, lng: 18.0686 };
 
 type MapStatus = 'loading' | 'ready' | 'missing-token' | 'error';
 type LocationStatus = 'pending' | 'acquired' | 'fallback';
+
+function metersToLatLngDelta(lat: number, meters: number) {
+  const dLat = meters / 111320;
+  const dLng = meters / (111320 * Math.cos(lat * DEG2RAD));
+  return { dLat, dLng };
+}
+
+function formatRangeMeters(m: number): string {
+  if (m >= 1000) {
+    const km = m / 1000;
+    return `${km.toFixed(km % 1 === 0 ? 0 : 1)} km`;
+  }
+  return `${Math.round(m)} m`;
+}
 
 export default function RadarView({ targets }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +53,52 @@ export default function RadarView({ targets }: Props) {
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('pending');
   const [position, setPosition] = useState(FALLBACK_POSITION);
+  const [maxRangeM, setMaxRangeM] = useState(DEFAULT_RANGE_M);
+  // Heading-up: the compass direction (deg, 0–359) that the operator is facing.
+  // When non-zero, the map, rings, cardinal letters and blip placement all
+  // rotate so that the user's facing direction is at the top of the display.
+  const [heading, setHeading] = useState(0);
+
+  // Draft strings for the editable inputs. The canonical state lives in
+  // `maxRangeM` / `heading`; drafts mirror it but can hold intermediate
+  // typing (empty, partial numbers) without clamping until commit.
+  const [rangeDraft, setRangeDraft] = useState(String(DEFAULT_RANGE_M));
+  const [headingDraft, setHeadingDraft] = useState('0');
+  useEffect(() => {
+    setRangeDraft(String(maxRangeM));
+  }, [maxRangeM]);
+  useEffect(() => {
+    setHeadingDraft(String(heading));
+  }, [heading]);
+
+  function commitRange(raw: string) {
+    const num = Number(raw);
+    if (!Number.isFinite(num)) {
+      setRangeDraft(String(maxRangeM));
+      return;
+    }
+    const clamped = Math.max(MIN_RANGE_M, Math.min(MAX_RANGE_M, Math.round(num)));
+    setMaxRangeM(clamped);
+  }
+
+  function commitHeading(raw: string) {
+    const num = Number(raw);
+    if (!Number.isFinite(num)) {
+      setHeadingDraft(String(heading));
+      return;
+    }
+    const wrapped = ((Math.round(num) % 360) + 360) % 360;
+    setHeading(wrapped);
+  }
+
+  // Ref mirrors so the once-on-mount map-load handler reads the latest values
+  // without forcing the whole map to recreate when controls change.
+  const rangeRef = useRef(maxRangeM);
+  rangeRef.current = maxRangeM;
+  const positionRef = useRef(position);
+  positionRef.current = position;
+  const headingRef = useRef(heading);
+  headingRef.current = heading;
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +147,7 @@ export default function RadarView({ targets }: Props) {
         container: mapContainerRef.current,
         style: MAP_STYLE,
         center: [position.lng, position.lat],
-        zoom: 12,
+        zoom: 13,
         bearing: 0,
         pitch: 0,
         interactive: false,
@@ -93,8 +158,26 @@ export default function RadarView({ targets }: Props) {
     }
 
     mapRef.current = map;
+
+    const fitToRange = () => {
+      const m = mapRef.current;
+      if (!m) return;
+      const pos = positionRef.current;
+      const range = rangeRef.current;
+      const bearing = headingRef.current;
+      const { dLat, dLng } = metersToLatLngDelta(pos.lat, range);
+      m.fitBounds(
+        [
+          [pos.lng - dLng, pos.lat - dLat],
+          [pos.lng + dLng, pos.lat + dLat],
+        ],
+        { padding: 0, animate: false, duration: 0, bearing },
+      );
+    };
+
     const handleLoad = () => {
       map?.resize();
+      fitToRange();
       setMapStatus('ready');
     };
     const handleError = () => setMapStatus('error');
@@ -103,6 +186,7 @@ export default function RadarView({ targets }: Props) {
 
     const resizeObserver = new ResizeObserver(() => {
       map?.resize();
+      fitToRange();
     });
     resizeObserver.observe(mapContainerRef.current);
 
@@ -115,10 +199,20 @@ export default function RadarView({ targets }: Props) {
     };
   }, []);
 
+  // Refit whenever range, position, or heading changes (post-mount).
   useEffect(() => {
-    if (!mapRef.current) return;
-    mapRef.current.setCenter([position.lng, position.lat]);
-  }, [position]);
+    const m = mapRef.current;
+    if (!m || mapStatus !== 'ready') return;
+    m.setCenter([position.lng, position.lat]);
+    const { dLat, dLng } = metersToLatLngDelta(position.lat, maxRangeM);
+    m.fitBounds(
+      [
+        [position.lng - dLng, position.lat - dLat],
+        [position.lng + dLng, position.lat + dLat],
+      ],
+      { padding: 0, animate: true, duration: 250, bearing: heading },
+    );
+  }, [maxRangeM, position, heading, mapStatus]);
 
   const mapStatusLabel =
     mapStatus === 'missing-token'
@@ -138,43 +232,158 @@ export default function RadarView({ targets }: Props) {
 
   return (
     <div className="panel radar-view">
-      <div className="panel-header">RADAR VIEW — PixiJS pending</div>
+      <div className="panel-header">
+        <span>RADAR VIEW</span>
+        <div className="radar-controls">
+          <div className="radar-range-control">
+            <label htmlFor="radar-range-slider" className="radar-range-label">
+              RANGE
+            </label>
+            <input
+              id="radar-range-slider"
+              type="range"
+              min={MIN_RANGE_M}
+              max={MAX_RANGE_M}
+              step={RANGE_STEP_M}
+              value={maxRangeM}
+              onChange={(e) => setMaxRangeM(Number(e.target.value))}
+              className="radar-range-slider"
+              aria-label="Radar max range slider"
+            />
+            <input
+              type="number"
+              min={MIN_RANGE_M}
+              max={MAX_RANGE_M}
+              step={RANGE_STEP_M}
+              value={rangeDraft}
+              onChange={(e) => setRangeDraft(e.target.value)}
+              onBlur={(e) => commitRange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitRange(e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              className="radar-control-number"
+              aria-label="Radar max range (meters)"
+            />
+            <span className="radar-control-unit">m</span>
+          </div>
+          <div className="radar-range-control">
+            <label htmlFor="radar-heading-slider" className="radar-range-label">
+              UP
+            </label>
+            <input
+              id="radar-heading-slider"
+              type="range"
+              min={0}
+              max={359}
+              step={1}
+              value={heading}
+              onChange={(e) => setHeading(Number(e.target.value))}
+              className="radar-range-slider"
+              aria-label="Direction facing slider (compass degrees)"
+            />
+            <input
+              type="number"
+              min={0}
+              max={359}
+              step={1}
+              value={headingDraft}
+              onChange={(e) => setHeadingDraft(e.target.value)}
+              onBlur={(e) => commitHeading(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitHeading(e.currentTarget.value);
+                  e.currentTarget.blur();
+                }
+              }}
+              className="radar-control-number"
+              aria-label="Direction facing (compass degrees)"
+            />
+            <span className="radar-control-unit">°</span>
+            <button
+              type="button"
+              className="radar-heading-reset"
+              onClick={() => setHeading(0)}
+              title="Reset to north-up"
+              aria-label="Reset heading to north"
+            >
+              ↺ N
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="radar-scope">
         <div className="radar-map">
           <div className="radar-map__canvas" ref={mapContainerRef} />
         </div>
-        <div className="radar-map__shade" />
 
         <div className="radar-overlay">
-          <svg className="radar-rings" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            {RINGS.map((r) => (
-              <circle
-                key={r}
-                cx="100"
-                cy="100"
-                r={r * 90}
-                fill="none"
-                stroke="#4f8fd1"
-                strokeWidth="1"
-              />
+          <svg
+            className="radar-rings"
+            viewBox="0 0 200 200"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ transform: `rotate(${-heading}deg)` }}
+          >
+            {RING_FRACTIONS.map((f) => (
+              <g key={f}>
+                <circle
+                  cx="100"
+                  cy="100"
+                  r={f * 90}
+                  fill="none"
+                  stroke="#4f8fd1"
+                  strokeWidth="0.4"
+                />
+                <text
+                  x={100 + f * 90 + 4}
+                  y={101}
+                  fill="#aac6ee"
+                  fontSize="5"
+                  fontFamily="JetBrains Mono, monospace"
+                  letterSpacing="0.5"
+                >
+                  {formatRangeMeters(f * maxRangeM)}
+                </text>
+              </g>
             ))}
-            <line x1="100" y1="10" x2="100" y2="190" stroke="#4f8fd1" strokeWidth="0.6" />
-            <line x1="10" y1="100" x2="190" y2="100" stroke="#4f8fd1" strokeWidth="0.6" />
+            <line x1="100" y1="10" x2="100" y2="190" stroke="#4f8fd1" strokeWidth="0.3" />
+            <line x1="10" y1="100" x2="190" y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
+
+            <text x="100" y="8" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">N</text>
+            <text x="100" y="196" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">S</text>
+            <text x="194" y="102" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.6">E</text>
+            <text x="6" y="102" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.6">W</text>
           </svg>
 
           {targets.map((t) => {
-            const rad = t.display.bearing_deg * DEG2RAD;
-            const r = t.display.radial_ttc_norm * 45;
+            // The blip's bearing is in compass degrees (clockwise from north).
+            // Subtract the heading so that the operator's facing direction sits
+            // at the top of the screen.
+            const screenAngleDeg = t.display.bearing_deg - heading;
+            const rad = screenAngleDeg * DEG2RAD;
+            const radialNorm = Math.min(1, t.range_m / maxRangeM);
+            const offRange = t.range_m > maxRangeM;
+            const r = radialNorm * 45;
             const x = 50 + r * Math.sin(rad);
             const y = 50 - r * Math.cos(rad);
+            const bearingLabel = `${t.display.bearing_deg.toFixed(0)}°`;
             return (
               <div
                 key={t.id}
-                className={`radar-blip radar-blip--${t.threat_level.toLowerCase()}`}
+                className="radar-blip-wrapper"
                 style={{ left: `${x}%`, top: `${y}%` }}
-                title={`${t.id} | ${t.threat_level} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'}`}
-              />
+                title={`${t.id} | ${t.threat_level} | range ${formatRangeMeters(t.range_m)} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'}`}
+              >
+                <span
+                  className={`radar-blip radar-blip--${t.threat_level.toLowerCase()}${offRange ? ' radar-blip--off-range' : ''}`}
+                />
+                <span className="radar-blip__label">
+                  {formatRangeMeters(t.range_m)} · {bearingLabel}
+                </span>
+              </div>
             );
           })}
 
@@ -183,11 +392,15 @@ export default function RadarView({ targets }: Props) {
           </div>
         </div>
 
-        <div className="radar-status">
-          <span>{mapStatusLabel}</span>
-          <span className="radar-status__sep">|</span>
-          <span>{locationStatusLabel}</span>
-        </div>
+        {(mapStatus !== 'ready' || locationStatus !== 'acquired') && (
+          <div className="radar-status">
+            {mapStatus !== 'ready' && <span>{mapStatusLabel}</span>}
+            {mapStatus !== 'ready' && locationStatus !== 'acquired' && (
+              <span className="radar-status__sep">|</span>
+            )}
+            {locationStatus !== 'acquired' && <span>{locationStatusLabel}</span>}
+          </div>
+        )}
       </div>
     </div>
   );
