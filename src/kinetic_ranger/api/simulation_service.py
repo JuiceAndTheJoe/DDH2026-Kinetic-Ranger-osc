@@ -153,6 +153,8 @@ class SimulationService:
         steps = config.simulation.steps
         dt = config.simulation.dt_s
         self._loop_duration_s: float = steps * dt
+        self.paused: bool = False
+        self._last_frame: Frame | None = None
 
     def _reset_loop(self, new_windows: list[IQWindow]) -> None:
         self._loop_count += 1
@@ -162,6 +164,10 @@ class SimulationService:
         self._windows = new_windows
 
     async def next_frame(self) -> Frame:
+        if self.paused and self._last_frame is not None:
+            self._last_frame.paused = True
+            return self._last_frame
+
         loop = asyncio.get_event_loop()
 
         if self._index >= len(self._windows):
@@ -185,7 +191,7 @@ class SimulationService:
 
         bearing_deg = float((self._loop_count * 30 + self._index * 3) % 360)
 
-        return Frame(
+        frame = Frame(
             observation=obs,
             estimate=estimate,
             alert=alert,
@@ -197,6 +203,8 @@ class SimulationService:
             bearing_deg=bearing_deg,
             tti_threshold_s=self._config.alert.tti_threshold_s,
         )
+        self._last_frame = frame
+        return frame
 
 
 class LiveFrameSource:

@@ -372,8 +372,10 @@ export default function RadarView({ targets }: Props) {
             // at the top of the screen.
             const screenAngleDeg = t.display.bearing_deg - heading;
             const rad = screenAngleDeg * DEG2RAD;
-            const radialNorm = Math.min(1, t.range_m / maxRangeM);
-            const offRange = t.range_m > maxRangeM;
+            // radial_ttc_norm: 0 = far/unknown, 1 = imminent (backend urgency scale)
+            // Invert for radar placement: high urgency → inner ring, low urgency → outer ring
+            const radialNorm = Math.max(0, Math.min(1, 1 - t.display.radial_ttc_norm));
+            const offRange = radialNorm >= 1.0;
             const r = radialNorm * 45;
             const x = 50 + r * Math.sin(rad);
             const y = 50 - r * Math.cos(rad);

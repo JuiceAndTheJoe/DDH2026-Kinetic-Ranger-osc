@@ -20,6 +20,9 @@ from .schemas import (
     RecordingStopResponse,
     RunSummary,
     SeekRequest,
+    SimulationConfigRequest,
+    SimulationControlRequest,
+    SimulationStatus,
     SourceState,
     TimelinePoint,
 )
@@ -277,3 +280,75 @@ def seek_source(body: SeekRequest, request: Request) -> SourceState:
     # the next WS tick will pick it up via _last_frame.
     del frame  # already cached by seek()
     return _source_state(request)
+
+
+# ----- simulation control -----------------------------------------------------
+
+
+def _require_sim(request: Request) -> "SimulationService":
+    source = request.app.state.frame_source
+    if not isinstance(source, SimulationService):
+        raise HTTPException(
+            status_code=409,
+            detail="current source is not simulation; switch to SIM first",
+        )
+    return source
+
+
+def _sim_status(source: "SimulationService", request: Request) -> SimulationStatus:
+    cfg = request.app.state.config.simulation
+    return SimulationStatus(
+        paused=source.paused,
+        start_range_m=cfg.start_range_m,
+        end_range_m=cfg.end_range_m,
+        noise_std=cfg.noise_std,
+        steps=cfg.steps,
+        dt_s=cfg.dt_s,
+    )
+
+
+@router.get("/simulation/status", response_model=SimulationStatus)
+def get_simulation_status(request: Request) -> SimulationStatus:
+    source = _require_sim(request)
+    return _sim_status(source, request)
+
+
+@router.post("/simulation/control", response_model=SimulationStatus)
+def simulation_control(body: SimulationControlRequest, request: Request) -> SimulationStatus:
+    source = _require_sim(request)
+    config = request.app.state.config
+    if body.action == "pause":
+        source.paused = True
+    elif body.action == "start":
+        source.paused = False
+    elif body.action == "reset":
+        request.app.state.frame_source = SimulationService(config)
+        source = request.app.state.frame_source
+    logger.info("Simulation control: action=%s", body.action)
+    return _sim_status(source, request)
+
+
+@router.post("/simulation/config", response_model=SimulationStatus)
+def simulation_config_update(body: SimulationConfigRequest, request: Request) -> SimulationStatus:
+    _require_sim(request)
+    cfg = request.app.state.config.simulation
+    if body.start_range_m is not None:
+        cfg.start_range_m = body.start_range_m
+    if body.end_range_m is not None:
+        cfg.end_range_m = body.end_range_m
+    if body.noise_std is not None:
+        cfg.noise_std = body.noise_std
+    if body.steps is not None:
+        cfg.steps = body.steps
+    if body.dt_s is not None:
+        cfg.dt_s = body.dt_s
+    # drone_count, speed_mps, altitude_m: accepted, not yet applied
+    request.app.state.frame_source = SimulationService(request.app.state.config)
+    source = request.app.state.frame_source
+    logger.info(
+        "Simulation config updated: start_range_m=%s end_range_m=%s noise_std=%s",
+        cfg.start_range_m,
+        cfg.end_range_m,
+        cfg.noise_std,
+    )
+    return _sim_status(source, request)

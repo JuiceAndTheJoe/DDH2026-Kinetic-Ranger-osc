@@ -1,11 +1,10 @@
-import { useState } from 'react';
-
-/**
- * UI scaffold only — controls are not yet wired to the backend.
- * TODO: POST { action: 'start' | 'pause' | 'reset' } to /simulation/control
- * TODO: POST { drone_count, altitude_m, speed_mps, ... } to /simulation/config
- * Both endpoints should be added to kinetic_ranger/api/main.py when ready.
- */
+import { useEffect, useState } from 'react';
+import {
+  getSimulationStatus,
+  simulationConfig,
+  simulationControl,
+} from '../lib/runsApi';
+import type { SimulationStatus } from '../lib/types';
 
 type ScenarioType = 'approach' | 'flyby' | 'hover';
 
@@ -17,21 +16,96 @@ export default function SimulationControls() {
   const [scenario, setScenario] = useState<ScenarioType>('approach');
   const [noiseLevel, setNoiseLevel] = useState(0.0005);
   const [bursty, setBursty] = useState(false);
+
   const [isRunning, setIsRunning] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [simStatus, setSimStatus] = useState<SimulationStatus | null>(null);
+  const [notInSim, setNotInSim] = useState(false);
 
-  const handleStartPause = () => {
-    setIsRunning((r) => !r);
-    // TODO: POST /simulation/control { action: isRunning ? 'pause' : 'start' }
-  };
+  // Sync state from backend on mount
+  useEffect(() => {
+    getSimulationStatus()
+      .then((s) => {
+        setSimStatus(s);
+        setIsRunning(!s.paused);
+        setStartDistance(s.start_range_m);
+        setNoiseLevel(s.noise_std);
+        setNotInSim(false);
+      })
+      .catch(() => {
+        // 409 = source is not sim; show a note but keep UI rendered
+        setNotInSim(true);
+      });
+  }, []);
 
-  const handleReset = () => {
-    setIsRunning(false);
-    // TODO: POST /simulation/control { action: 'reset' }
-  };
+  function applyStatus(s: SimulationStatus) {
+    setSimStatus(s);
+    setIsRunning(!s.paused);
+    setNotInSim(false);
+  }
+
+  async function handleStartPause() {
+    if (busy) return;
+    const action = isRunning ? 'pause' : 'start';
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationControl(action);
+      applyStatus(s);
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReset() {
+    if (busy) return;
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationControl('reset');
+      applyStatus(s);
+      setStatusMsg('Simulation reset.');
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleApplyConfig() {
+    if (busy) return;
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationConfig({
+        start_range_m: startDistance,
+        noise_std: noiseLevel,
+        // future fields forwarded; backend ignores unsupported ones
+        drone_count: droneCount,
+        speed_mps: speed,
+        altitude_m: altitude,
+      });
+      applyStatus(s);
+      setStatusMsg('Config applied — simulation restarted.');
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="panel sim-controls">
       <div className="panel-header">SIMULATION CONTROLS</div>
+
+      {notInSim && (
+        <p className="sim-status sim-status--warn">
+          ⚠ Switch source to SIM to use controls.
+        </p>
+      )}
 
       <div className="controls-grid">
         <label className="ctrl-label">
@@ -123,17 +197,41 @@ export default function SimulationControls() {
         <button
           className={`ctrl-btn ctrl-btn--${isRunning ? 'pause' : 'start'}`}
           onClick={handleStartPause}
+          disabled={busy || notInSim}
         >
           {isRunning ? '⏸ PAUSE' : '▶ START'}
         </button>
-        <button className="ctrl-btn ctrl-btn--reset" onClick={handleReset}>
+        <button
+          className="ctrl-btn ctrl-btn--reset"
+          onClick={handleReset}
+          disabled={busy || notInSim}
+        >
           ↺ RESET
+        </button>
+        <button
+          className="ctrl-btn ctrl-btn--apply"
+          onClick={handleApplyConfig}
+          disabled={busy || notInSim}
+        >
+          ✓ APPLY
         </button>
       </div>
 
       <p className="sim-status">
-        {isRunning ? '● SIMULATION RUNNING' : '○ SIMULATION PAUSED'}
+        {statusMsg
+          ? statusMsg
+          : isRunning
+            ? '● SIMULATION RUNNING'
+            : '○ SIMULATION PAUSED'}
       </p>
+
+      {simStatus && (
+        <p className="sim-config-info">
+          {simStatus.start_range_m.toFixed(0)} m → {simStatus.end_range_m.toFixed(0)} m
+          &nbsp;·&nbsp; noise {simStatus.noise_std.toFixed(4)}
+          &nbsp;·&nbsp; {simStatus.steps} steps
+        </p>
+      )}
     </div>
   );
 }

@@ -96,3 +96,28 @@ class SourceState(BaseModel):
 
 class SeekRequest(BaseModel):
     frame: int
+
+
+class SimulationControlRequest(BaseModel):
+    action: Literal["start", "pause", "reset"]
+
+
+class SimulationConfigRequest(BaseModel):
+    start_range_m: float | None = None
+    end_range_m: float | None = None
+    noise_std: float | None = None
+    steps: int | None = None
+    dt_s: float | None = None
+    # Future fields — accepted in schema, not yet applied to backend config
+    drone_count: int | None = None
+    speed_mps: float | None = None
+    altitude_m: float | None = None
+
+
+class SimulationStatus(BaseModel):
+    paused: bool
+    start_range_m: float
+    end_range_m: float
+    noise_std: float
+    steps: int
+    dt_s: float

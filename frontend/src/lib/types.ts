@@ -102,3 +102,12 @@ export interface SourceState {
   replay_tick_count: number | null;
   paused: boolean;
 }
+
+export interface SimulationStatus {
+  paused: boolean;
+  start_range_m: number;
+  end_range_m: number;
+  noise_std: number;
+  steps: number;
+  dt_s: number;
+}
