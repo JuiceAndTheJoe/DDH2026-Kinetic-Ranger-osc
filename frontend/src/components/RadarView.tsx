@@ -385,7 +385,7 @@ export default function RadarView({ targets }: Props) {
                 key={t.id}
                 className="radar-blip-wrapper"
                 style={{ left: `${x}%`, top: `${y}%` }}
-                title={`${t.id} | ${t.threat_level} | range ${formatRangeMeters(t.range_m)} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'}`}
+                title={`${t.id} | ${t.threat_level} | range ${formatRangeMeters(t.range_m)} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'} | Sim Alt ${t.altitude_m != null ? t.altitude_m.toFixed(0) + 'm' : '--'}`}
               >
                 <span
                   className={`radar-blip radar-blip--${t.threat_level.toLowerCase()}${offRange ? ' radar-blip--off-range' : ''}`}

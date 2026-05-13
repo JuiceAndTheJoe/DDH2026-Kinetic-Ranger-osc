@@ -502,6 +502,12 @@
   color: #ffd2d2;
 }
 
+/* Simulation truth metadata — visually muted to distinguish from RF measurements */
+.metric-value--meta {
+  color: #4a6a8a;
+  font-style: italic;
+}
+
 .conf-bar {
   display: inline-block;
   height: 6px;

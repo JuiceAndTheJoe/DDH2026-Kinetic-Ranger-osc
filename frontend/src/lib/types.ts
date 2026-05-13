@@ -31,6 +31,8 @@ export interface TargetState {
   threat_level: ThreatLevel;
   closing: boolean;
   display: TargetDisplay;
+  /** Simulation truth metadata — not RF-estimated. Null for live/replay sources. */
+  altitude_m?: number | null;
 }
 
 export interface HistoryPoint {

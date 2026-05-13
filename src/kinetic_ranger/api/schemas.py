@@ -31,6 +31,8 @@ class TargetState(BaseModel):
     threat_level: str       # "CRITICAL" | "HIGH" | "LOW" | "NONE"
     closing: bool
     display: TargetDisplay
+    # Simulation truth metadata — not RF-estimated. None for live/replay sources.
+    altitude_m: float | None = None
 
 
 class PayloadSummary(BaseModel):

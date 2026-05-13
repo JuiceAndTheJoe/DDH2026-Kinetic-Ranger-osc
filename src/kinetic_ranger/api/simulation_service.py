@@ -89,6 +89,8 @@ class Frame:
     replay_index: int | None = None
     replay_tick_count: int | None = None
     paused: bool = False
+    # Simulation truth metadata — not RF-estimated. None for live/replay sources.
+    altitude_m: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +131,7 @@ def _frame_to_target_state(frame: Frame) -> TargetState:
             bearing_deg=round(frame.bearing_deg, 1),
             radial_ttc_norm=round(radial_ttc_norm, 3),
         ),
+        altitude_m=frame.altitude_m,
     )
 
 
@@ -297,6 +300,7 @@ class SimulationService:
                 rssi_slope_db_s=rssi_slope,
                 bearing_deg=bearing_deg,
                 tti_threshold_s=self._config.alert.tti_threshold_s,
+                altitude_m=drone.altitude_m,
             ))
 
         self._last_frames = frames
