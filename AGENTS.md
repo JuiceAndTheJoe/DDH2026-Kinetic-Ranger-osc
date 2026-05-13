@@ -25,9 +25,10 @@ Start by reading:
 
 Important areas in `src/kinetic_ranger/`:
 
-- `cli.py` — CLI entrypoints: `simulate`, `replay`, `live`
+- `cli.py` — CLI entrypoints: `simulate`, `replay`, `live`, `export`
+- `logging/run_writer.py`, `logging/run_reader.py`, `logging/exporter.py` — run-directory I/O. `RunWriter` is the canonical writer used by every CLI subcommand and by the FastAPI replay path; `RunReader` parses it back; `export_run` produces flat CSVs (observations / alerts / telemetry).
 - `api/main.py` — FastAPI app setup and CORS
-- `api/websocket.py` / `api/simulation_service.py` — WebSocket streaming path
+- `api/websocket.py` / `api/simulation_service.py` — WebSocket streaming path. `SimulationService` is the synthetic source; `ReplayFrameSource` (same file) drives the same pipeline from a recorded run when `KR_REPLAY_SOURCE` is set.
 - `radio/capture.py` — simulation and hardware capture interfaces
 - `radio/features.py` — IQ-window feature extraction
 - `estimation/ekf.py` — tracking / estimation logic

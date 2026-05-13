@@ -22,11 +22,15 @@ coverage.xml
 # Local data and logs
 artifacts/
 logs/
+runs/
 *.log
 *.jsonl
 *.csv
 *.npy
 *.npz
+
+# Per-developer Claude Code state
+.claude/
 
 # OS / editor
 .DS_Store

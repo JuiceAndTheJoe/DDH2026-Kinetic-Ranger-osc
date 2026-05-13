@@ -8,10 +8,11 @@ from kinetic_ranger.models import AlertDecision, RadioObservation, TelemetrySamp
 
 
 class SessionLogger:
-    def __init__(self, root_dir: str | Path) -> None:
+    def __init__(self, root_dir: str | Path, filename: str | None = None) -> None:
         self.root_dir = Path(root_dir)
         self.root_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"session-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
+        if filename is None:
+            filename = f"session-{time.strftime('%Y%m%d-%H%M%S')}.jsonl"
         self.path = self.root_dir / filename
         self._handle = self.path.open("w", encoding="utf-8")
 

@@ -75,10 +75,13 @@ python -m kinetic_ranger simulate
 Useful variants:
 
 ```text
-python -m kinetic_ranger simulate --log-dir logs
+python -m kinetic_ranger simulate --log-dir runs
 python -m kinetic_ranger replay path\to\observations.csv
+python -m kinetic_ranger replay path\to\run-dir
 python -m kinetic_ranger live --iterations 10
 ```
+
+See "Recording and replay" below for the run-directory workflow.
 
 ### Dashboard
 
@@ -140,6 +143,45 @@ DDH2026/
 │       └── models.py
 └── tests/
 ```
+
+## Recording and replay
+
+Every CLI command (`simulate`, `replay`, `live`) accepts `--log-dir <root>` and
+writes a self-contained **run directory** under it. Same for the FastAPI
+service when `KR_REPLAY_SOURCE` points at one.
+
+```text
+runs/20260513-142208_simulate/
+├── manifest.json       # schema_version, mode, started_at_s, duration_s, tick_count, config_hash
+├── snapshots.jsonl     # one JSON object per tick: observation + estimate + alert + telemetry
+├── observations.csv    # produced by `export` — same schema the CSV replay accepts
+├── telemetry.csv       # only when telemetry was logged
+└── alerts.csv          # flat alert decisions
+```
+
+Typical workflow:
+
+```text
+# 1. Record
+python -m kinetic_ranger simulate --log-dir runs
+
+# 2. Export flat CSVs for analysis tools
+python -m kinetic_ranger export runs\20260513-142208_simulate
+
+# 3. Replay the recorded run through the CLI pipeline
+python -m kinetic_ranger replay runs\20260513-142208_simulate
+```
+
+To replay a recording through the dashboard, point the backend at the run
+directory before starting it:
+
+```text
+$env:KR_REPLAY_SOURCE = "runs\20260513-142208_simulate"
+python -m uvicorn kinetic_ranger.api.main:app --reload --port 8000
+```
+
+The dashboard renders it identically to a live run; the WebSocket payload's
+`mode` field switches to `"replay"`.
 
 ## Notes about current limitations
 
