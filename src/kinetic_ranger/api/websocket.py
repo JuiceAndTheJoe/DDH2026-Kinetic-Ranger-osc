@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from fastapi.websockets import WebSocket, WebSocketDisconnect
 from starlette.websockets import WebSocketState
 
-from .simulation_service import frame_to_payload
+from .simulation_service import frames_to_payload
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,11 +28,12 @@ async def radar_stream(websocket: WebSocket) -> None:
     try:
         while True:
             source = app.state.frame_source
-            frame = await source.next_frame()
+            frames = await source.next_frames()
             recording = getattr(app.state, "recording", None)
             if recording is not None:
-                recording.tap(frame)
-            payload = frame_to_payload(frame)
+                # Record the primary (first) frame; multi-drone recording is deferred.
+                recording.tap(frames[0])
+            payload = frames_to_payload(frames)
             await websocket.send_text(payload.model_dump_json())
             await asyncio.sleep(1.0)
     except WebSocketDisconnect:

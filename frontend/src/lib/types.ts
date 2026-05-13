@@ -105,6 +105,7 @@ export interface SourceState {
 
 export interface SimulationStatus {
   paused: boolean;
+  drone_count: number;
   start_range_m: number;
   end_range_m: number;
   noise_std: number;

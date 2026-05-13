@@ -10,7 +10,24 @@ import SimulationControls from './components/SimulationControls';
 import SourceSelector from './components/SourceSelector';
 import ThreatBanner from './components/ThreatBanner';
 import { RadarWebSocket } from './lib/websocket';
-import type { ConnectionState, HistoryPoint, RadarPayload } from './lib/types';
+import type { ConnectionState, HistoryPoint, RadarPayload, TargetState } from './lib/types';
+
+const _THREAT_RANK: Record<string, number> = {
+  CRITICAL: 3, HIGH: 2, LOW: 1, NONE: 0,
+};
+
+/** Pick the highest-threat target; break ties by shortest positive TTC. */
+function pickPrimary(targets: TargetState[]): TargetState | null {
+  if (targets.length === 0) return null;
+  return [...targets].sort((a, b) => {
+    const rankDiff =
+      (_THREAT_RANK[b.threat_level] ?? 0) - (_THREAT_RANK[a.threat_level] ?? 0);
+    if (rankDiff !== 0) return rankDiff;
+    const aTtc = a.estimated_ttc_s < 0 ? Infinity : a.estimated_ttc_s;
+    const bTtc = b.estimated_ttc_s < 0 ? Infinity : b.estimated_ttc_s;
+    return aTtc - bTtc;
+  })[0];
+}
 
 const WS_URL = 'ws://localhost:8000/ws/radar';
 const MAX_HISTORY = 60;
@@ -30,7 +47,7 @@ export default function App() {
       WS_URL,
       (nextPayload) => {
         setPayload(nextPayload);
-        const target = nextPayload.targets[0];
+        const target = pickPrimary(nextPayload.targets);
         if (!target) {
           return;
         }

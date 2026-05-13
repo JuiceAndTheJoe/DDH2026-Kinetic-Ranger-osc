@@ -30,7 +30,6 @@ from .simulation_service import (
     LiveFrameSource,
     ReplayFrameSource,
     SimulationService,
-    frame_to_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -299,6 +298,7 @@ def _sim_status(source: "SimulationService", request: Request) -> SimulationStat
     cfg = request.app.state.config.simulation
     return SimulationStatus(
         paused=source.paused,
+        drone_count=cfg.drone_count,
         start_range_m=cfg.start_range_m,
         end_range_m=cfg.end_range_m,
         noise_std=cfg.noise_std,
@@ -342,7 +342,9 @@ def simulation_config_update(body: SimulationConfigRequest, request: Request) ->
         cfg.steps = body.steps
     if body.dt_s is not None:
         cfg.dt_s = body.dt_s
-    # drone_count, speed_mps, altitude_m: accepted, not yet applied
+    if body.drone_count is not None:
+        cfg.drone_count = max(1, min(10, body.drone_count))
+    # speed_mps, altitude_m: accepted in schema, not yet applied to sim config
     request.app.state.frame_source = SimulationService(request.app.state.config)
     source = request.app.state.frame_source
     logger.info(

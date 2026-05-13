@@ -116,6 +116,7 @@ class SimulationConfigRequest(BaseModel):
 
 class SimulationStatus(BaseModel):
     paused: bool
+    drone_count: int
     start_range_m: float
     end_range_m: float
     noise_std: float

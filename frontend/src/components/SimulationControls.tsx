@@ -29,6 +29,7 @@ export default function SimulationControls() {
       .then((s) => {
         setSimStatus(s);
         setIsRunning(!s.paused);
+        setDroneCount(s.drone_count);
         setStartDistance(s.start_range_m);
         setNoiseLevel(s.noise_std);
         setNotInSim(false);

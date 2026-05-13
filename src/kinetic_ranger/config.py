@@ -80,6 +80,7 @@ class SimulationConfig:
     effective_power_db: float = -6.0
     path_loss_exponent: float = 2.15
     noise_std: float = 0.0005
+    drone_count: int = 1
 
 
 @dataclass(slots=True)
