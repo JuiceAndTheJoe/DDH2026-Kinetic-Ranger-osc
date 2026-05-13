@@ -52,7 +52,6 @@ class SimulationService:
         self._loop_count: int = 0
         self._ekf = ClosingThreatEKF(config.estimator)
         self._alert_engine = AlertRuleEngine(config.alert)
-        self._prev_rssi: float | None = None
 
         steps = config.simulation.steps
         dt = config.simulation.dt_s
@@ -65,7 +64,6 @@ class SimulationService:
         # Fresh instances avoid stale last_timestamp_s and alert state carry-over.
         self._ekf = ClosingThreatEKF(self._config.estimator)
         self._alert_engine = AlertRuleEngine(self._config.alert)
-        self._prev_rssi = None
         self._windows = new_windows
 
     async def next_frame(self) -> RadarPayload:
@@ -89,14 +87,9 @@ class SimulationService:
         # Monotonic wall-clock time across loop resets.
         time_s = self._loop_count * self._loop_duration_s + window.timestamp_s
 
-        # RSSI slope: dB/s. Zero on the first frame of each loop.
-        dt_s = self._config.simulation.dt_s
-        rssi_slope = (
-            (obs.rssi_dbfs - self._prev_rssi) / dt_s
-            if self._prev_rssi is not None
-            else 0.0
-        )
-        self._prev_rssi = obs.rssi_dbfs
+        # RSSI slope (dB/s) comes from the EKF state — it is the primary
+        # observable now that Tx power is treated as unknown.
+        rssi_slope = estimate.rssi_slope_db_per_s
 
         # Map AlertDecision.severity (lowercase) to the payload's threat vocabulary.
         threat_level = _SEVERITY_TO_THREAT.get(alert.severity, "LOW")

@@ -40,15 +40,20 @@ class TelemetryConfig:
 
 @dataclass(slots=True)
 class EstimatorConfig:
+    # The EKF state is (rssi_dbfs, rssi_slope_db_per_s, closing_rate_mps).
+    # Tx power is treated as unknown; only Tx-power-independent quantities
+    # are tracked. Time-to-impact is derived from the RSSI slope under a
+    # constant-velocity straight-line approach: TTI = 10n / (ln10 · slope).
     carrier_frequency_hz: float = 2_437_000_000.0
     path_loss_exponent: float = 2.15
-    initial_range_m: float = 180.0
-    initial_closing_rate_mps: float = -3.0
-    initial_effective_power_db: float = -6.0
-    initial_covariance_diag: tuple[float, float, float] = (625.0, 16.0, 36.0)
-    process_noise_diag: tuple[float, float, float] = (36.0, 4.0, 1.0)
+    initial_rssi_dbfs: float = -55.0
+    initial_rssi_slope_db_per_s: float = 0.0
+    initial_closing_rate_mps: float = 0.0
+    initial_covariance_diag: tuple[float, float, float] = (100.0, 4.0, 16.0)
+    process_noise_diag: tuple[float, float, float] = (1.0, 0.25, 4.0)
     measurement_noise_diag: tuple[float, float] = (9.0, 25.0)
-    minimum_range_m: float = 1.0
+    # Minimum positive RSSI slope (dB/s) before reporting a slope-based TTI.
+    tti_slope_floor_db_per_s: float = 0.2
 
     def __post_init__(self) -> None:
         self.initial_covariance_diag = _coerce_tuple3(self.initial_covariance_diag)

@@ -17,7 +17,7 @@ def format_console_snapshot(
         f"[{observation.timestamp_s:6.2f}s] {state:<5} "
         f"RSSI={observation.rssi_dbfs:7.2f} dBFS "
         f"CFO={observation.cfo_hz:9.2f} Hz "
-        f"Range={estimate.range_m:7.2f} m "
+        f"Slope={estimate.rssi_slope_db_per_s:+6.2f} dB/s "
         f"CloseRate={estimate.closing_rate_mps:7.2f} m/s "
         f"TTI={_format_tti(estimate.time_to_impact_s)} "
         f"Conf={estimate.confidence:0.2f} "

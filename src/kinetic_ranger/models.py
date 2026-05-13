@@ -53,12 +53,17 @@ class TelemetrySample:
 
 @dataclass(slots=True)
 class ThreatEstimate:
-    """Current estimator state and confidence."""
+    """Current estimator state and confidence.
+
+    Tx power and absolute range are unobservable from RSSI alone, so the
+    estimator tracks observable quantities only: smoothed RSSI level,
+    RSSI temporal slope (dB/s), and Doppler-derived closing rate.
+    """
 
     timestamp_s: float
-    range_m: float
+    rssi_dbfs: float
+    rssi_slope_db_per_s: float
     closing_rate_mps: float
-    effective_power_db: float
     time_to_impact_s: float | None
     covariance_diag: tuple[float, float, float]
     confidence: float

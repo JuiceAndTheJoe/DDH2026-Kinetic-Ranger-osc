@@ -11,18 +11,18 @@ def test_alert_engine_requires_sustained_hits() -> None:
 
     first_estimate = ThreatEstimate(
         timestamp_s=0.0,
-        range_m=25.0,
+        rssi_dbfs=-40.0,
+        rssi_slope_db_per_s=1.5,
         closing_rate_mps=-4.0,
-        effective_power_db=-18.0,
         time_to_impact_s=6.25,
         covariance_diag=(4.0, 1.0, 1.0),
         confidence=0.8,
     )
     second_estimate = ThreatEstimate(
         timestamp_s=1.0,
-        range_m=21.0,
+        rssi_dbfs=-38.0,
+        rssi_slope_db_per_s=1.8,
         closing_rate_mps=-4.2,
-        effective_power_db=-18.0,
         time_to_impact_s=5.0,
         covariance_diag=(4.0, 1.0, 1.0),
         confidence=0.82,

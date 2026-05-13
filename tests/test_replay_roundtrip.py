@@ -35,9 +35,9 @@ def _fixture_config() -> AppConfig:
     estimator = EstimatorConfig(
         carrier_frequency_hz=radio.center_frequency_hz,
         path_loss_exponent=simulation.path_loss_exponent,
-        initial_range_m=220.0,
-        initial_closing_rate_mps=-2.0,
-        initial_effective_power_db=simulation.effective_power_db,
+        initial_rssi_dbfs=-60.0,
+        initial_rssi_slope_db_per_s=0.0,
+        initial_closing_rate_mps=0.0,
     )
     return AppConfig(
         radio=radio,
@@ -98,12 +98,12 @@ def test_record_export_replay_roundtrip(tmp_path: Path) -> None:
     assert len(replay_estimates) == len(original_estimates)
     for original, replayed in zip(original_estimates, replay_estimates):
         assert replayed.timestamp_s == pytest.approx(original.timestamp_s, abs=1e-9)
-        assert replayed.range_m == pytest.approx(original.range_m, abs=1e-9)
+        assert replayed.rssi_dbfs == pytest.approx(original.rssi_dbfs, abs=1e-9)
+        assert replayed.rssi_slope_db_per_s == pytest.approx(
+            original.rssi_slope_db_per_s, abs=1e-9
+        )
         assert replayed.closing_rate_mps == pytest.approx(
             original.closing_rate_mps, abs=1e-9
-        )
-        assert replayed.effective_power_db == pytest.approx(
-            original.effective_power_db, abs=1e-9
         )
 
 

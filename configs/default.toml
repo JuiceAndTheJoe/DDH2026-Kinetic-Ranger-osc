@@ -12,15 +12,17 @@ time_offset_s = 0.0
 use_ground_speed = true
 
 [estimator]
+# State: (rssi_dbfs, rssi_slope_db_per_s, closing_rate_mps). Tx power
+# unknown; TTI derived from slope under a constant-velocity approach.
 carrier_frequency_hz = 2_437_000_000.0
 path_loss_exponent = 2.15
-initial_range_m = 180.0
-initial_closing_rate_mps = -3.0
-initial_effective_power_db = -6.0
-initial_covariance_diag = [625.0, 16.0, 36.0]
-process_noise_diag = [36.0, 4.0, 1.0]
+initial_rssi_dbfs = -55.0
+initial_rssi_slope_db_per_s = 0.0
+initial_closing_rate_mps = 0.0
+initial_covariance_diag = [100.0, 4.0, 16.0]
+process_noise_diag = [1.0, 0.25, 4.0]
 measurement_noise_diag = [9.0, 25.0]
-minimum_range_m = 1.0
+tti_slope_floor_db_per_s = 0.2
 
 [alert]
 tti_threshold_s = 12.0
