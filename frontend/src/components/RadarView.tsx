@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Application, Graphics } from 'pixi.js';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TargetState } from '../lib/types';
@@ -30,6 +31,30 @@ const DEG2RAD = Math.PI / 180;
 const MAP_STYLE = 'mapbox://styles/mapbox/dark-v11';
 const FALLBACK_POSITION = { lat: 59.3293, lng: 18.0686 };
 
+// PixiJS draws the rotating sweep line only — the static rings, distance
+// labels, and cardinal letters live in SVG below so they can react to the
+// operator-controlled range and heading without recomputing canvas geometry.
+const SWEEP_PERIOD_MS = 6000;
+const SWEEP_COLOR = 0x50ffd7;
+
+function drawSweep(app: Application, sweep: Graphics): void {
+  const cx = app.screen.width / 2;
+  const cy = app.screen.height / 2;
+  const maxR = (Math.min(app.screen.width, app.screen.height) / 2) * 0.9;
+
+  sweep.x = cx;
+  sweep.y = cy;
+  sweep.clear();
+  sweep.moveTo(0, 0).lineTo(0, -maxR).stroke({ color: SWEEP_COLOR, width: 1.5, alpha: 0.9 });
+  for (let i = 1; i <= 8; i++) {
+    const a = -i * 5 * DEG2RAD;
+    sweep
+      .moveTo(0, 0)
+      .lineTo(Math.sin(a) * maxR, -Math.cos(a) * maxR)
+      .stroke({ color: SWEEP_COLOR, width: 1, alpha: Math.max(0, 0.15 - i * 0.015) });
+  }
+}
+
 type MapStatus = 'loading' | 'ready' | 'missing-token' | 'error';
 type LocationStatus = 'pending' | 'acquired' | 'fallback';
 
@@ -50,6 +75,10 @@ function formatRangeMeters(m: number): string {
 export default function RadarView({ targets }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
+  const scopeRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pixiRef = useRef<Application | null>(null);
+
   const [mapStatus, setMapStatus] = useState<MapStatus>('loading');
   const [locationStatus, setLocationStatus] = useState<LocationStatus>('pending');
   const [position, setPosition] = useState(FALLBACK_POSITION);
@@ -100,6 +129,7 @@ export default function RadarView({ targets }: Props) {
   const headingRef = useRef(heading);
   headingRef.current = heading;
 
+  // Geolocation
   useEffect(() => {
     let cancelled = false;
     if (!navigator.geolocation) {
@@ -129,6 +159,7 @@ export default function RadarView({ targets }: Props) {
     };
   }, []);
 
+  // Mapbox
   useEffect(() => {
     const token = import.meta.env.VITE_MAPBOX_TOKEN;
     if (!mapContainerRef.current) return undefined;
@@ -213,6 +244,51 @@ export default function RadarView({ targets }: Props) {
       { padding: 0, animate: true, duration: 250, bearing: heading },
     );
   }, [maxRangeM, position, heading, mapStatus]);
+
+  // PixiJS sweep — animated rotating line + trailing fade. Painted on its own
+  // canvas behind the SVG rings.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const scope = scopeRef.current;
+    if (!canvas || !scope) return;
+
+    const app = new Application();
+    let cancelled = false;
+
+    (async () => {
+      await app.init({
+        canvas,
+        resizeTo: scope,
+        backgroundAlpha: 0,
+        antialias: true,
+        autoDensity: true,
+        resolution: window.devicePixelRatio ?? 1,
+      });
+
+      if (cancelled) {
+        app.destroy(true);
+        return;
+      }
+
+      const sweep = new Graphics();
+      app.stage.addChild(sweep);
+      pixiRef.current = app;
+
+      const redraw = () => drawSweep(app, sweep);
+      redraw();
+      app.renderer.on('resize', redraw);
+
+      app.ticker.add((ticker) => {
+        sweep.rotation += ((2 * Math.PI) / SWEEP_PERIOD_MS) * ticker.deltaMS;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      pixiRef.current?.destroy(true);
+      pixiRef.current = null;
+    };
+  }, []);
 
   const mapStatusLabel =
     mapStatus === 'missing-token'
@@ -315,12 +391,17 @@ export default function RadarView({ targets }: Props) {
         </div>
       </div>
 
-      <div className="radar-scope">
+      <div className="radar-scope" ref={scopeRef}>
         <div className="radar-map">
           <div className="radar-map__canvas" ref={mapContainerRef} />
         </div>
 
         <div className="radar-overlay">
+          <canvas
+            ref={canvasRef}
+            className="radar-sweep-canvas"
+          />
+
           <svg
             className="radar-rings"
             viewBox="0 0 200 200"
