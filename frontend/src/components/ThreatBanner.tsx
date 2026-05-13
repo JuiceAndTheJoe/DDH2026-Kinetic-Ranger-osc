@@ -1,8 +1,9 @@
-import type { ConnectionState, PayloadSummary, ThreatLevel } from '../lib/types';
+import type { ConnectionState, Mode, PayloadSummary, ThreatLevel } from '../lib/types';
 
 interface Props {
   summary: PayloadSummary | null;
   connectionState: ConnectionState;
+  mode: Mode | null;
 }
 
 const CONNECTION_LABELS: Record<ConnectionState, string> = {
@@ -12,7 +13,13 @@ const CONNECTION_LABELS: Record<ConnectionState, string> = {
   error: 'ERROR',
 };
 
-export default function ThreatBanner({ summary, connectionState }: Props) {
+const MODE_LABELS: Record<Mode, string> = {
+  live: 'LIVE',
+  simulation: 'SIM',
+  replay: 'REPLAY ▶',
+};
+
+export default function ThreatBanner({ summary, connectionState, mode }: Props) {
   const threat: ThreatLevel = summary?.highest_threat ?? 'NONE';
   const alertActive = summary?.alert ?? false;
   const activeCount = summary?.active_targets ?? 0;
@@ -22,6 +29,12 @@ export default function ThreatBanner({ summary, connectionState }: Props) {
       <div className="threat-banner__connection" data-state={connectionState}>
         <span className="connection-dot" />
         <span className="connection-label">{CONNECTION_LABELS[connectionState]}</span>
+        {mode && (
+          <span className={`mode-chip mode-chip--${mode}`}>
+            <span className="mode-chip__dot" />
+            {MODE_LABELS[mode]}
+          </span>
+        )}
       </div>
 
       <div className="threat-banner__title">
