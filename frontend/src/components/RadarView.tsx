@@ -1,7 +1,44 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { TargetState } from '../lib/types';
+
+/**
+ * Per-bearing signal-strength ring drawn around the radar perimeter.
+ *
+ * Each of the SPECTRUM_BINS angular bins gets a magnitude in [0, 1] that
+ * sums Gaussian contributions from every active target's bearing on top of
+ * a flat noise floor. The output drives the radial bars rendered around the
+ * outer ring of the SVG — peaks bloom amber wherever a target's bearing
+ * sits, baseline bins stay cool blue.
+ *
+ * Today the per-target amplitude is derived from RSSI as a stand-in. When
+ * coherent two-channel AOA + per-azimuth FFT lands, replace the body of
+ * this function with the real per-bin power readout — the rendering side
+ * stays identical.
+ */
+const SPECTRUM_BINS = 96;
+const SPECTRUM_NOISE_FLOOR = 0.06;
+const SPECTRUM_PEAK_SIGMA_DEG = 14;
+
+function computeSpectrum(targets: TargetState[], bins: number): number[] {
+  const spectrum = new Array<number>(bins).fill(SPECTRUM_NOISE_FLOOR);
+  const binWidth = 360 / bins;
+  const sigmaBins = SPECTRUM_PEAK_SIGMA_DEG / binWidth;
+  const twoSigmaSq = 2 * sigmaBins * sigmaBins;
+  for (const t of targets) {
+    const amplitude = Math.min(1, Math.max(0.35, (t.rssi_db + 90) / 30));
+    for (let i = 0; i < bins; i++) {
+      const binCenter = i * binWidth;
+      let diffDeg = Math.abs(binCenter - t.display.bearing_deg);
+      if (diffDeg > 180) diffDeg = 360 - diffDeg;
+      const diffBins = diffDeg / binWidth;
+      const contribution = amplitude * Math.exp(-(diffBins * diffBins) / twoSigmaSq);
+      spectrum[i] = Math.min(1, spectrum[i] + contribution);
+    }
+  }
+  return spectrum;
+}
 
 interface Props {
   targets: TargetState[];
@@ -42,9 +79,9 @@ function metersToLatLngDelta(lat: number, meters: number) {
 function formatRangeMeters(m: number): string {
   if (m >= 1000) {
     const km = m / 1000;
-    return `${km.toFixed(km % 1 === 0 ? 0 : 1)} km`;
+    return `${km.toFixed(km % 1 === 0 ? 0 : 1)}km`;
   }
-  return `${Math.round(m)} m`;
+  return `${Math.round(m)}m`;
 }
 
 export default function RadarView({ targets }: Props) {
@@ -217,6 +254,9 @@ export default function RadarView({ targets }: Props) {
     );
   }, [maxRangeM, position, heading, mapStatus]);
 
+  // Per-bearing signal strength — recomputed when the target list changes.
+  const spectrum = useMemo(() => computeSpectrum(targets, SPECTRUM_BINS), [targets]);
+
   const mapStatusLabel =
     mapStatus === 'missing-token'
       ? 'Mapbox token missing'
@@ -235,8 +275,11 @@ export default function RadarView({ targets }: Props) {
 
   return (
     <div className="panel radar-view">
-      <div className="panel-header">
-        <span>RADAR VIEW</span>
+      <div className="radar-scope">
+        <div className="radar-map">
+          <div className="radar-map__canvas" ref={mapContainerRef} />
+        </div>
+
         <div className="radar-controls">
           <div className="radar-range-control">
             <label htmlFor="radar-range-slider" className="radar-range-label">
@@ -316,12 +359,6 @@ export default function RadarView({ targets }: Props) {
             </button>
           </div>
         </div>
-      </div>
-
-      <div className="radar-scope">
-        <div className="radar-map">
-          <div className="radar-map__canvas" ref={mapContainerRef} />
-        </div>
 
         <div className="radar-overlay">
           <div className="radar-pulse" aria-hidden="true">
@@ -336,34 +373,71 @@ export default function RadarView({ targets }: Props) {
             style={{ transform: `rotate(${-heading}deg)` }}
           >
             {RING_FRACTIONS.map((f) => (
-              <g key={f}>
-                <circle
-                  cx="100"
-                  cy="100"
-                  r={f * 90}
-                  fill="none"
-                  stroke="#4f8fd1"
-                  strokeWidth="0.4"
-                />
-                <text
-                  x={100 + f * 90 + 4}
-                  y={101}
-                  fill="#aac6ee"
-                  fontSize="5"
-                  fontFamily="JetBrains Mono, monospace"
-                  letterSpacing="0.5"
-                >
-                  {formatRangeMeters(f * maxRangeM)}
-                </text>
-              </g>
+              <circle
+                key={`ring-${f}`}
+                cx="100"
+                cy="100"
+                r={f * 90}
+                fill="none"
+                stroke="#4f8fd1"
+                strokeWidth="0.4"
+              />
             ))}
             <line x1="100" y1="10" x2="100" y2="190" stroke="#4f8fd1" strokeWidth="0.3" />
             <line x1="10" y1="100" x2="190" y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
 
-            <text x="100" y="8" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">N</text>
-            <text x="100" y="196" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">S</text>
-            <text x="194" y="102" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.6">E</text>
-            <text x="6" y="102" fill="#aac6ee" fontSize="5.5" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.6">W</text>
+            {/* Distance labels — rendered after the rings + crosshairs so the
+                halo'd text always sits in front of every blue line. */}
+            {RING_FRACTIONS.map((f) => (
+              <text
+                key={`label-${f}`}
+                x={100 + f * 90}
+                y={101.2}
+                fill="#aac6ee"
+                stroke="#0a111d"
+                strokeWidth="0.9"
+                paintOrder="stroke"
+                fontSize="3.6"
+                fontFamily="JetBrains Mono, monospace"
+                letterSpacing="0.3"
+                textAnchor="middle"
+              >
+                {formatRangeMeters(f * maxRangeM)}
+              </text>
+            ))}
+
+            {/* Spectrum ring — per-bearing signal strength as radial bars. */}
+            {spectrum.map((mag, i) => {
+              const theta = (i / spectrum.length) * 2 * Math.PI;
+              const r0 = 92;
+              const r1 = r0 + mag * 7;
+              const sin = Math.sin(theta);
+              const cos = Math.cos(theta);
+              const x1 = 100 + sin * r0;
+              const y1 = 100 - cos * r0;
+              const x2 = 100 + sin * r1;
+              const y2 = 100 - cos * r1;
+              const stroke =
+                mag > 0.55 ? '#ffc266' : mag > 0.3 ? '#9ad4ff' : '#3f6791';
+              return (
+                <line
+                  key={i}
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke={stroke}
+                  strokeWidth={0.9}
+                  strokeLinecap="round"
+                  opacity={0.35 + mag * 0.55}
+                />
+              );
+            })}
+
+            <text x="100" y="4" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">N</text>
+            <text x="100" y="199" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">S</text>
+            <text x="199" y="103" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.6">E</text>
+            <text x="1" y="103" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.6">W</text>
           </svg>
 
           {targets.map((t) => {
