@@ -1,20 +1,32 @@
 import { useState } from 'react';
+import {
+  SCENARIOS,
+  getScenario,
+  type ScenarioId,
+} from '../lib/scenarios';
 
 /**
- * UI scaffold only — controls are not yet wired to the backend.
- * TODO: POST { action: 'start' | 'pause' | 'reset' } to /simulation/control
- * TODO: POST { drone_count, altitude_m, speed_mps, ... } to /simulation/config
- * Both endpoints should be added to kinetic_ranger/api/main.py when ready.
+ * UI scaffold — only the scenario picker is wired (it drives an in-app mock
+ * generator). Drone-count / altitude / speed / noise / start/pause/reset are
+ * still visual placeholders. When `/simulation/control` and
+ * `/simulation/config` are added in the backend, wire those here.
  */
 
-type ScenarioType = 'approach' | 'flyby' | 'hover';
+interface Props {
+  scenario: ScenarioId;
+  onScenarioChange: (next: ScenarioId) => void;
+  disabledReason: string | null;
+}
 
-export default function SimulationControls() {
+export default function SimulationControls({
+  scenario,
+  onScenarioChange,
+  disabledReason,
+}: Props) {
   const [droneCount, setDroneCount] = useState(1);
   const [altitude, setAltitude] = useState(50);
   const [speed, setSpeed] = useState(15);
   const [startDistance, setStartDistance] = useState(220);
-  const [scenario, setScenario] = useState<ScenarioType>('approach');
   const [noiseLevel, setNoiseLevel] = useState(0.0005);
   const [bursty, setBursty] = useState(false);
   const [isRunning, setIsRunning] = useState(true);
@@ -29,9 +41,37 @@ export default function SimulationControls() {
     // TODO: POST /simulation/control { action: 'reset' }
   };
 
+  const pickerDisabled = disabledReason !== null;
+  const activeScenario = getScenario(scenario);
+
   return (
     <div className="panel sim-controls">
       <div className="panel-header">SIMULATION CONTROLS</div>
+
+      <div className="scenario-picker">
+        <label htmlFor="scenario-select" className="scenario-picker__label">
+          Scenario
+        </label>
+        {/* `kind: 'mock'` scenarios are scripted in `lib/scenarios.ts` and
+            don't reach the backend — operators don't need to know that
+            distinction in the UI, so we render every entry uniformly. */}
+        <select
+          id="scenario-select"
+          value={scenario}
+          onChange={(e) => onScenarioChange(e.target.value as ScenarioId)}
+          disabled={pickerDisabled}
+          className="ctrl-input scenario-picker__select"
+        >
+          {SCENARIOS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <p className="scenario-picker__description">
+          {pickerDisabled ? disabledReason : activeScenario.description}
+        </p>
+      </div>
 
       <div className="controls-grid">
         <label className="ctrl-label">
@@ -80,19 +120,6 @@ export default function SimulationControls() {
             onChange={(e) => setStartDistance(Number(e.target.value))}
             className="ctrl-input"
           />
-        </label>
-
-        <label className="ctrl-label">
-          Scenario
-          <select
-            value={scenario}
-            onChange={(e) => setScenario(e.target.value as ScenarioType)}
-            className="ctrl-input"
-          >
-            <option value="approach">Direct Approach</option>
-            <option value="flyby">Fly-by</option>
-            <option value="hover">Hover</option>
-          </select>
         </label>
 
         <label className="ctrl-label">
