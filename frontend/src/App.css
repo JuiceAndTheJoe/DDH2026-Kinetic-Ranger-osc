@@ -682,6 +682,39 @@
   gap: 12px;
 }
 
+.scenario-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed rgba(72, 112, 164, 0.3);
+}
+
+.scenario-picker__label {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.scenario-picker__select {
+  width: 100%;
+}
+
+.scenario-picker__description {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--muted);
+  line-height: 1.4;
+  min-height: 2em;
+}
+
+.ctrl-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .ctrl-label {
   display: flex;
   flex-direction: column;
