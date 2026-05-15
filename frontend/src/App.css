@@ -78,10 +78,22 @@
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-left: 4px;
+  padding-right: 4px;
   transition: transform 0.3s ease, opacity 0.25s ease;
+  scrollbar-gutter: stable;
+}
+
+/* Keep each card at its content height so the column scrolls instead of
+   silently shrinking children — without this, the simulation controls
+   panel would clip Speed / Noise / Start / Reset / status off the bottom
+   on shorter viewports. */
+.dashboard-right > *,
+.dashboard-rail > * {
+  flex-shrink: 0;
 }
 
 .dashboard-right--collapsed {
@@ -95,6 +107,63 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: rgba(95, 140, 200, 0.45);
+  padding: 14px 16px;
+}
+
+.dashboard-right .panel-header {
+  margin-bottom: 10px;
+}
+
+/* Tighten internal spacings so the full simulation controls panel —
+   scenario + 6 inputs + 2 buttons + status — fits the column without
+   excessive scrolling on common viewport heights. */
+.dashboard-right .sim-controls .controls-grid {
+  gap: 8px;
+}
+
+.dashboard-right .sim-controls .ctrl-input,
+.dashboard-right .sim-controls .ctrl-range {
+  padding: 6px 8px;
+}
+
+.dashboard-right .sim-controls .ctrl-buttons {
+  margin-top: 10px;
+}
+
+.dashboard-right .sim-controls .scenario-picker {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.dashboard-right .metric {
+  padding: 8px 10px;
+}
+
+.dashboard-right .metrics-grid {
+  gap: 8px;
+}
+
+/* Visible scrollbar so the affordance reads even on the dark backdrop. */
+.dashboard-right::-webkit-scrollbar,
+.dashboard-rail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-right::-webkit-scrollbar-thumb,
+.dashboard-rail::-webkit-scrollbar-thumb {
+  background: rgba(95, 140, 200, 0.45);
+  border-radius: 3px;
+}
+
+.dashboard-right::-webkit-scrollbar-thumb:hover,
+.dashboard-rail::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 170, 230, 0.65);
+}
+
+.dashboard-right,
+.dashboard-rail {
+  scrollbar-color: rgba(95, 140, 200, 0.45) transparent;
+  scrollbar-width: thin;
 }
 
 .dashboard-right__toggle {
