@@ -64,8 +64,8 @@ const DEG2RAD = Math.PI / 180;
 // preserveAspectRatio=meet). Keep BLIP_OUTER_VMIN in sync — the two
 // constants represent the same circle, just in different coordinate
 // systems (SVG units vs CSS vmin).
-const RADAR_OUTER_R = 40;
-const BLIP_OUTER_VMIN = 20;
+const RADAR_OUTER_R = 65;
+const BLIP_OUTER_VMIN = RADAR_OUTER_R / 2;
 // Abstract dark vector style — roads, parks, water, country boundaries, no
 // photographic buildings. Swap candidates if you want a different look:
 //   'mapbox://styles/mapbox/light-v11'           — abstract light
@@ -390,8 +390,8 @@ export default function RadarView({ targets }: Props) {
                 strokeWidth="0.4"
               />
             ))}
-            <line x1="100" y1={100 - RADAR_OUTER_R - 6} x2="100" y2={100 + RADAR_OUTER_R + 6} stroke="#4f8fd1" strokeWidth="0.3" />
-            <line x1={100 - RADAR_OUTER_R - 6} y1="100" x2={100 + RADAR_OUTER_R + 6} y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
+            <line x1="100" y1={100 - RADAR_OUTER_R - 8} x2="100" y2={100 + RADAR_OUTER_R + 8} stroke="#4f8fd1" strokeWidth="0.3" />
+            <line x1={100 - RADAR_OUTER_R - 8} y1="100" x2={100 + RADAR_OUTER_R + 8} y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
 
             {/* Distance labels — rendered after the rings + crosshairs so the
                 halo'd text always sits in front of every blue line. */}
@@ -404,9 +404,9 @@ export default function RadarView({ targets }: Props) {
                 stroke="#0a111d"
                 strokeWidth="0.9"
                 paintOrder="stroke"
-                fontSize="2.6"
+                fontSize="3.2"
                 fontFamily="JetBrains Mono, monospace"
-                letterSpacing="0.2"
+                letterSpacing="0.3"
                 textAnchor="middle"
               >
                 {formatRangeMeters(f * maxRangeM)}
@@ -417,7 +417,7 @@ export default function RadarView({ targets }: Props) {
             {spectrum.map((mag, i) => {
               const theta = (i / spectrum.length) * 2 * Math.PI;
               const r0 = RADAR_OUTER_R + 2;
-              const r1 = r0 + mag * 4;
+              const r1 = r0 + mag * 6;
               const sin = Math.sin(theta);
               const cos = Math.cos(theta);
               const x1 = 100 + sin * r0;
@@ -434,17 +434,17 @@ export default function RadarView({ targets }: Props) {
                   x2={x2}
                   y2={y2}
                   stroke={stroke}
-                  strokeWidth={0.6}
+                  strokeWidth={0.85}
                   strokeLinecap="round"
                   opacity={0.35 + mag * 0.55}
                 />
               );
             })}
 
-            <text x="100" y={100 - RADAR_OUTER_R - 3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.4">N</text>
-            <text x="100" y={100 + RADAR_OUTER_R + 5} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.4">S</text>
-            <text x={100 + RADAR_OUTER_R + 4} y={101.3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.4">E</text>
-            <text x={100 - RADAR_OUTER_R - 4} y={101.3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.4">W</text>
+            <text x="100" y={100 - RADAR_OUTER_R - 4} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.5">N</text>
+            <text x="100" y={100 + RADAR_OUTER_R + 7} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.5">S</text>
+            <text x={100 + RADAR_OUTER_R + 5} y={101.6} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.2" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.5">E</text>
+            <text x={100 - RADAR_OUTER_R - 5} y={101.6} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.2" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.5">W</text>
           </svg>
 
           {targets.map((t) => {
