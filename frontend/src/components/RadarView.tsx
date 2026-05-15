@@ -59,6 +59,13 @@ const MAX_RANGE_M = 5000;
 const RANGE_STEP_M = 100;
 const RING_FRACTIONS = [0.25, 0.5, 0.75, 1.0];
 const DEG2RAD = Math.PI / 180;
+// Outer ring radius in SVG viewBox units (viewBox is 0 0 200 200, so 40
+// = 20% of viewBox = 20vmin of the rendered scope under
+// preserveAspectRatio=meet). Keep BLIP_OUTER_VMIN in sync — the two
+// constants represent the same circle, just in different coordinate
+// systems (SVG units vs CSS vmin).
+const RADAR_OUTER_R = 40;
+const BLIP_OUTER_VMIN = 20;
 // Abstract dark vector style — roads, parks, water, country boundaries, no
 // photographic buildings. Swap candidates if you want a different look:
 //   'mapbox://styles/mapbox/light-v11'           — abstract light
@@ -377,29 +384,29 @@ export default function RadarView({ targets }: Props) {
                 key={`ring-${f}`}
                 cx="100"
                 cy="100"
-                r={f * 90}
+                r={f * RADAR_OUTER_R}
                 fill="none"
                 stroke="#4f8fd1"
                 strokeWidth="0.4"
               />
             ))}
-            <line x1="100" y1="10" x2="100" y2="190" stroke="#4f8fd1" strokeWidth="0.3" />
-            <line x1="10" y1="100" x2="190" y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
+            <line x1="100" y1={100 - RADAR_OUTER_R - 6} x2="100" y2={100 + RADAR_OUTER_R + 6} stroke="#4f8fd1" strokeWidth="0.3" />
+            <line x1={100 - RADAR_OUTER_R - 6} y1="100" x2={100 + RADAR_OUTER_R + 6} y2="100" stroke="#4f8fd1" strokeWidth="0.3" />
 
             {/* Distance labels — rendered after the rings + crosshairs so the
                 halo'd text always sits in front of every blue line. */}
             {RING_FRACTIONS.map((f) => (
               <text
                 key={`label-${f}`}
-                x={100 + f * 90}
+                x={100 + f * RADAR_OUTER_R}
                 y={101.2}
                 fill="#aac6ee"
                 stroke="#0a111d"
                 strokeWidth="0.9"
                 paintOrder="stroke"
-                fontSize="3.6"
+                fontSize="2.6"
                 fontFamily="JetBrains Mono, monospace"
-                letterSpacing="0.3"
+                letterSpacing="0.2"
                 textAnchor="middle"
               >
                 {formatRangeMeters(f * maxRangeM)}
@@ -409,8 +416,8 @@ export default function RadarView({ targets }: Props) {
             {/* Spectrum ring — per-bearing signal strength as radial bars. */}
             {spectrum.map((mag, i) => {
               const theta = (i / spectrum.length) * 2 * Math.PI;
-              const r0 = 92;
-              const r1 = r0 + mag * 7;
+              const r0 = RADAR_OUTER_R + 2;
+              const r1 = r0 + mag * 4;
               const sin = Math.sin(theta);
               const cos = Math.cos(theta);
               const x1 = 100 + sin * r0;
@@ -427,17 +434,17 @@ export default function RadarView({ targets }: Props) {
                   x2={x2}
                   y2={y2}
                   stroke={stroke}
-                  strokeWidth={0.9}
+                  strokeWidth={0.6}
                   strokeLinecap="round"
                   opacity={0.35 + mag * 0.55}
                 />
               );
             })}
 
-            <text x="100" y="4" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">N</text>
-            <text x="100" y="199" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.6">S</text>
-            <text x="199" y="103" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.6">E</text>
-            <text x="1" y="103" fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.5" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.6">W</text>
+            <text x="100" y={100 - RADAR_OUTER_R - 3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.4">N</text>
+            <text x="100" y={100 + RADAR_OUTER_R + 5} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="middle" letterSpacing="0.4">S</text>
+            <text x={100 + RADAR_OUTER_R + 4} y={101.3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="start" letterSpacing="0.4">E</text>
+            <text x={100 - RADAR_OUTER_R - 4} y={101.3} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="3.2" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.4">W</text>
           </svg>
 
           {targets.map((t) => {
@@ -448,15 +455,22 @@ export default function RadarView({ targets }: Props) {
             const rad = screenAngleDeg * DEG2RAD;
             const radialNorm = Math.min(1, t.range_m / maxRangeM);
             const offRange = t.range_m > maxRangeM;
-            const r = radialNorm * 45;
-            const x = 50 + r * Math.sin(rad);
-            const y = 50 - r * Math.cos(rad);
+            // Use vmin so a blip at full range traces a true circle with
+            // radius matching the SVG outer ring, regardless of the
+            // scope's aspect ratio.
+            const r = radialNorm * BLIP_OUTER_VMIN;
+            const dx = r * Math.sin(rad);
+            const dy = -r * Math.cos(rad);
             const bearingLabel = `${t.display.bearing_deg.toFixed(0)}°`;
             return (
               <div
                 key={t.id}
                 className="radar-blip-wrapper"
-                style={{ left: `${x}%`, top: `${y}%` }}
+                style={{
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(${dx}vmin, ${dy}vmin)`,
+                }}
                 title={`${t.id} | ${t.threat_level} | range ${formatRangeMeters(t.range_m)} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'}`}
               >
                 <span
