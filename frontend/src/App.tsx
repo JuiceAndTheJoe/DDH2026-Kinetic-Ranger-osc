@@ -33,6 +33,7 @@ export default function App() {
   const [runsRefreshKey, setRunsRefreshKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [scenario, setScenario] = useState<ScenarioId>(DEFAULT_SCENARIO);
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const wsRef = useRef<RadarWebSocket | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -157,7 +158,20 @@ export default function App() {
 
       <div className="dashboard-main">
         <div className="dashboard-left">
-          <div className="dashboard-rail">
+          <button
+            type="button"
+            className={`dashboard-rail__toggle${railCollapsed ? ' dashboard-rail__toggle--collapsed' : ''}`}
+            onClick={() => setRailCollapsed((c) => !c)}
+            aria-label={railCollapsed ? 'Show side panel' : 'Hide side panel'}
+            aria-expanded={!railCollapsed}
+            title={railCollapsed ? 'Show side panel' : 'Hide side panel'}
+          >
+            <span aria-hidden="true">{railCollapsed ? '›' : '‹'}</span>
+          </button>
+          <div
+            className={`dashboard-rail${railCollapsed ? ' dashboard-rail--collapsed' : ''}`}
+            aria-hidden={railCollapsed}
+          >
             <div className="panel">
               <div className="panel-header">SOURCE</div>
               <SourceSelector mode={mode} onMessage={showToast} />

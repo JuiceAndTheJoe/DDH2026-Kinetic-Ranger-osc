@@ -102,6 +102,7 @@
   pointer-events: none;
   overflow-y: auto;
   padding-right: 4px;
+  transition: transform 0.3s ease, opacity 0.25s ease;
 }
 
 .dashboard-rail > * {
@@ -113,6 +114,52 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: rgba(95, 140, 200, 0.45);
+}
+
+/* Collapsed state: slide the rail off the left edge and fade it out so
+   the radar can be inspected without obstruction. The toggle button
+   stays anchored at the radar's left edge regardless. */
+.dashboard-rail--collapsed {
+  transform: translateX(calc(-100% - 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dashboard-rail__toggle {
+  position: absolute;
+  top: 10px;
+  left: 244px;
+  z-index: 11;
+  width: 26px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(95, 140, 200, 0.55);
+  background: rgba(8, 14, 24, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #aac6ee;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: left 0.3s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-rail__toggle:hover {
+  color: #d6ecff;
+  box-shadow: 0 0 12px rgba(90, 196, 255, 0.4);
+}
+
+.dashboard-rail__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 196, 255, 0.65);
+}
+
+.dashboard-rail__toggle--collapsed {
+  left: 10px;
 }
 
 .dashboard-right {
@@ -833,12 +880,20 @@
   }
 
   /* On narrow screens the rail returns to in-flow above the radar so it
-     doesn't obscure half the map. */
+     doesn't obscure half the map. The collapse toggle is hidden because
+     the rail no longer overlays the radar. */
   .dashboard-rail {
     position: static;
     width: auto;
     overflow: visible;
     padding-right: 0;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .dashboard-rail__toggle {
+    display: none;
   }
 }
 
