@@ -1,19 +1,19 @@
 .dashboard {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+  padding: 0;
   transition: background 0.6s ease;
 }
 
-/* Mode-driven viewport wash — sits behind everything, fades smoothly. */
+/* Mode-driven viewport wash — sits on top of the map so the colour shift
+   reads even when the map fills the background, but below every overlay
+   so the rail / right / banner stay legible. */
 .dashboard::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: 1;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease, background 0.6s ease;
@@ -23,7 +23,7 @@
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 2;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease, box-shadow 0.6s ease;
@@ -65,25 +65,73 @@
 
 /* Simulation mode — keep the existing neutral dark, no overlay. */
 
-.dashboard-main {
-  display: grid;
-  grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr);
-  gap: 20px;
-  flex: 1;
-}
-
-.dashboard-left {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
+/* dashboard-main / dashboard-left no longer exist as wrappers — every
+   element is a sibling under .dashboard and gets absolutely positioned
+   over the radar background. */
 
 .dashboard-right {
+  position: absolute;
+  top: 96px;
+  right: 24px;
+  bottom: 24px;
+  width: 340px;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  overflow-y: auto;
+  padding-left: 4px;
+  transition: transform 0.3s ease, opacity 0.25s ease;
+}
+
+.dashboard-right--collapsed {
+  transform: translateX(calc(100% + 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dashboard-right .panel {
+  background: rgba(8, 14, 24, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(95, 140, 200, 0.45);
+}
+
+.dashboard-right__toggle {
+  position: absolute;
+  top: 106px;
+  right: 296px;
+  z-index: 11;
+  width: 26px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(95, 140, 200, 0.55);
+  background: rgba(8, 14, 24, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #aac6ee;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: right 0.3s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-right__toggle:hover {
+  color: #d6ecff;
+  box-shadow: 0 0 12px rgba(90, 196, 255, 0.4);
+}
+
+.dashboard-right__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 196, 255, 0.65);
+}
+
+.dashboard-right__toggle--collapsed {
+  right: 12px;
 }
 
 /* The rail floats over the left edge of the radar so the map can extend
@@ -91,9 +139,9 @@
    slight backdrop blur so the map stays legible without washing them out. */
 .dashboard-rail {
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  top: 96px;
+  left: 24px;
+  bottom: 24px;
   width: 260px;
   z-index: 10;
   display: flex;
@@ -127,8 +175,8 @@
 
 .dashboard-rail__toggle {
   position: absolute;
-  top: 10px;
-  left: 244px;
+  top: 106px;
+  left: 296px;
   z-index: 11;
   width: 26px;
   height: 40px;
@@ -159,7 +207,7 @@
 }
 
 .dashboard-rail__toggle--collapsed {
-  left: 10px;
+  left: 12px;
 }
 
 .dashboard-right {
@@ -210,16 +258,24 @@
 }
 
 .threat-banner {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  z-index: 20;
   display: grid;
   grid-template-columns: minmax(0, 260px) minmax(0, 1fr) minmax(0, 220px);
   gap: 18px;
   align-items: center;
-  padding: 16px 22px;
-  background: linear-gradient(120deg, rgba(13, 26, 44, 0.95), rgba(11, 19, 33, 0.9));
-  border: 1px solid rgba(80, 130, 190, 0.35);
-  border-radius: 18px;
+  padding: 12px 22px;
+  background: linear-gradient(120deg, rgba(13, 26, 44, 0.72), rgba(11, 19, 33, 0.65));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(80, 130, 190, 0.5);
+  border-radius: 14px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  box-shadow: 0 4px 16px rgba(3, 6, 14, 0.45);
 }
 
 .threat-banner__connection {
@@ -312,8 +368,12 @@
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* The radar view is the canvas — it sits behind every overlay element
+   (banner, rail, right panel, scrubber) and fills the viewport. */
 .radar-view {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   display: flex;
   flex-direction: column;
 }
@@ -321,12 +381,8 @@
 .radar-scope {
   position: relative;
   flex: 1;
-  margin-top: 12px;
-  min-height: 500px;
-  border-radius: 18px;
   overflow: hidden;
   background: transparent;
-  border: 1px solid rgba(55, 90, 140, 0.35);
 }
 
 .radar-map {
@@ -679,19 +735,20 @@
   box-shadow: 0 0 12px rgba(90, 196, 255, 0.85);
 }
 
-/* Floating control cluster — sits at the top-right of the map, well away
-   from the rail toggle on the left. Translucent backing matches the rail
-   cards so the controls read as the same surface. */
+/* Floating control cluster — anchored just below the threat banner,
+   between the rail and the right panel so it doesn't fight either when
+   both are expanded. Translucent backing matches the side panels. */
 .radar-controls {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 8;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: rgba(8, 14, 24, 0.72);
   border: 1px solid rgba(95, 140, 200, 0.45);
   border-radius: 12px;
@@ -885,29 +942,27 @@
 }
 
 @media (max-width: 1100px) {
-  .dashboard {
-    padding: 18px;
-  }
-
-  .dashboard-main {
-    grid-template-columns: 1fr;
-  }
-
-  /* On narrow screens the rail returns to in-flow above the radar so it
-     doesn't obscure half the map. The collapse toggle is hidden because
-     the rail no longer overlays the radar. */
+  /* On narrower screens shrink the side rails so the map keeps a usable
+     middle band. The collapse toggles stay visible — there's no longer
+     any in-flow fallback because every chrome element is an overlay. */
   .dashboard-rail {
-    position: static;
-    width: auto;
-    overflow: visible;
-    padding-right: 0;
-    transform: none;
-    opacity: 1;
-    pointer-events: auto;
+    width: 220px;
   }
 
   .dashboard-rail__toggle {
-    display: none;
+    left: 256px;
+  }
+
+  .dashboard-right {
+    width: 280px;
+  }
+
+  .dashboard-right__toggle {
+    right: 236px;
+  }
+
+  .replay-scrubber {
+    width: min(600px, calc(100% - 560px));
   }
 }
 
@@ -1207,9 +1262,19 @@
 /* -------- Replay scrubber --------------------------------------------------- */
 
 .replay-scrubber {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  width: min(720px, calc(100% - 640px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: rgba(8, 14, 24, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(95, 140, 200, 0.45);
 }
 
 .replay-scrubber__row {

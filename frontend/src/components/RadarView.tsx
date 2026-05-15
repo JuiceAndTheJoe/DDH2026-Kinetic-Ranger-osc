@@ -274,7 +274,7 @@ export default function RadarView({ targets }: Props) {
         : 'Location pending';
 
   return (
-    <div className="panel radar-view">
+    <div className="radar-view">
       <div className="radar-scope">
         <div className="radar-map">
           <div className="radar-map__canvas" ref={mapContainerRef} />
