@@ -173,11 +173,9 @@ export default function App() {
         className={`dashboard-rail${railCollapsed ? ' dashboard-rail--collapsed' : ''}`}
         aria-hidden={railCollapsed}
       >
-        <div className="panel">
+        <div className="panel panel--transparent">
           <div className="panel-header">SOURCE</div>
           <SourceSelector mode={mode} onMessage={showToast} />
-        </div>
-        <div className="panel">
           <div className="panel-header">CAPTURE RUN</div>
           <RecordButton
             mode={mode}

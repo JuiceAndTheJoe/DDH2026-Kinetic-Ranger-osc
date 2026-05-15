@@ -100,7 +100,7 @@
 .dashboard-right__toggle {
   position: absolute;
   top: 106px;
-  right: 296px;
+  right: 376px;
   z-index: 11;
   width: 26px;
   height: 40px;
@@ -162,6 +162,27 @@
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-color: rgba(95, 140, 200, 0.45);
+}
+
+/* Transparent variant: strips the card chrome so the inner controls
+   (segmented source picker, record button) read as floating elements
+   over the map. The controls themselves keep their own backgrounds. */
+.dashboard-rail .panel--transparent,
+.dashboard-right .panel--transparent {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.panel--transparent::after {
+  display: none;
+}
+
+.panel--transparent .panel-header:not(:first-child) {
+  margin-top: 14px;
 }
 
 /* Collapsed state: slide the rail off the left edge and fade it out so
@@ -396,6 +417,14 @@
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Hide Mapbox logo and the "© Mapbox © OpenStreetMap" attribution. */
+.radar-map .mapboxgl-ctrl-logo,
+.radar-map .mapboxgl-ctrl-attrib,
+.radar-map .mapboxgl-ctrl-bottom-left,
+.radar-map .mapboxgl-ctrl-bottom-right {
+  display: none !important;
 }
 
 .radar-overlay {
@@ -958,7 +987,7 @@
   }
 
   .dashboard-right__toggle {
-    right: 236px;
+    right: 316px;
   }
 
   .replay-scrubber {
