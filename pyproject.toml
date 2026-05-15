@@ -13,11 +13,15 @@ dependencies = [
     "numpy>=2.0",
     "fastapi>=0.111",
     "uvicorn[standard]>=0.29",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.2",
+]
+ai = [
+    "google-cloud-aiplatform>=1.60",
 ]
 hardware = [
     "pyadi-iio>=0.0.17",

@@ -9,9 +9,11 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from kinetic_ranger.config import load_config
 
+from .ai_summary import router as ai_summary_router
 from .recording import RecordingController
 from .routes import router as rest_router
 from .simulation_service import (
@@ -22,6 +24,8 @@ from .simulation_service import (
 from .websocket import router as ws_router
 
 logger = logging.getLogger(__name__)
+
+load_dotenv()
 
 
 def _default_runs_root() -> Path:
@@ -69,6 +73,7 @@ app.add_middleware(
 
 app.include_router(rest_router)
 app.include_router(ws_router)
+app.include_router(ai_summary_router)
 
 
 @app.get("/health")

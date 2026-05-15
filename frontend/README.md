@@ -4,7 +4,7 @@ This folder contains the Vite + React + TypeScript dashboard for Kinetic Ranger.
 
 ## What it does today
 
-- connects to `ws://localhost:8000/ws/radar`
+- connects to backend WebSocket via env-configurable URL
 - shows the threat banner, radar display, metrics, and RSSI history
 - renders simulated backend data in real time
 
@@ -45,7 +45,8 @@ pnpm preview
 
 ## Important implementation notes
 
-- the app currently hardcodes the backend WebSocket URL in `src/App.tsx`
+- REST base URL is controlled by `VITE_API_BASE_URL` (default `http://localhost:8000`)
+- WebSocket URL is controlled by `VITE_WS_URL`, or derived from API base to `/ws/radar`
 - TypeScript is configured with `erasableSyntaxOnly`, so avoid TypeScript features that require emitted runtime transforms, such as constructor parameter properties
 - the dashboard expects simulation payloads shaped like `frontend/src/lib/types.ts`, which must stay aligned with `src/kinetic_ranger/api/schemas.py`
 

@@ -22,12 +22,14 @@ class SessionLogger:
         estimate: ThreatEstimate,
         alert: AlertDecision,
         telemetry: TelemetrySample | None = None,
+        range_m: float | None = None,
     ) -> None:
         payload = {
             "observation": observation.to_dict(),
             "estimate": estimate.to_dict(),
             "alert": alert.to_dict(),
             "telemetry": telemetry.to_dict() if telemetry else None,
+            "range_m": range_m,
         }
         self._handle.write(json.dumps(payload) + "\n")
         self._handle.flush()

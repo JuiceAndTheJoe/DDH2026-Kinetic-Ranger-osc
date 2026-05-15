@@ -43,12 +43,13 @@ class SimulatedApproachCapture:
                 ) / (2.0 * self.simulation_config.dt_s)
 
             cfo_hz = -(self.radio_config.center_frequency_hz / SPEED_OF_LIGHT_MPS) * radial_velocity_mps
-            # Use slant range (3-D distance) for path loss so altitude_m affects RSSI realistically.
-            # When altitude_m = 0 this reduces to horizontal range_m, preserving old behaviour.
-            altitude_m = self.simulation_config.altitude_m
-            slant_range_m = math.sqrt(range_m ** 2 + altitude_m ** 2)
+            # For the current direct-approach scenario, `range_m` represents
+            # the true line-of-sight (slant) closure distance to the receiver.
+            # This keeps operator expectations intuitive: if end_range_m is small,
+            # the simulated target is truly close and TTC can become imminent.
+            slant_range_m = max(range_m, 1.0)
             rssi_dbfs = self.simulation_config.effective_power_db - (
-                10.0 * self.simulation_config.path_loss_exponent * math.log10(max(slant_range_m, 1.0))
+                10.0 * self.simulation_config.path_loss_exponent * math.log10(slant_range_m)
             )
             amplitude = _db_to_linear_amplitude(rssi_dbfs)
             phase = 2.0 * np.pi * cfo_hz * sample_times

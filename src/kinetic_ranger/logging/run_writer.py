@@ -65,8 +65,9 @@ class RunWriter:
         estimate: ThreatEstimate,
         alert: AlertDecision,
         telemetry: TelemetrySample | None = None,
+        range_m: float | None = None,
     ) -> None:
-        self._session_logger.log_snapshot(observation, estimate, alert, telemetry)
+        self._session_logger.log_snapshot(observation, estimate, alert, telemetry, range_m)
         if self._first_timestamp_s is None:
             self._first_timestamp_s = observation.timestamp_s
         self._last_timestamp_s = observation.timestamp_s

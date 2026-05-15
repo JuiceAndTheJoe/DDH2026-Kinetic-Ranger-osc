@@ -9,6 +9,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 Mode = Literal["simulation", "replay", "live"]
+ThreatLevel = Literal["CRITICAL", "HIGH", "LOW", "NONE"]
+Severity = Literal["critical", "warning", "info", "none"]
 
 
 class ReceiverInfo(BaseModel):
@@ -28,7 +30,7 @@ class TargetState(BaseModel):
     estimated_ttc_s: float  # -1.0 sentinel when time-to-contact is unavailable
     range_m: float          # EKF range state in meters
     confidence: float
-    threat_level: str       # "CRITICAL" | "HIGH" | "LOW" | "NONE"
+    threat_level: ThreatLevel
     closing: bool
     display: TargetDisplay
     # Simulation truth metadata — not RF-estimated. None for live/replay sources.
@@ -36,7 +38,7 @@ class TargetState(BaseModel):
 
 
 class PayloadSummary(BaseModel):
-    highest_threat: str
+    highest_threat: ThreatLevel
     active_targets: int
     alert: bool
 
@@ -59,13 +61,13 @@ class RunSummary(BaseModel):
     started_at_s: float
     duration_s: float
     tick_count: int
-    peak_severity: str  # "critical" | "warning" | "info" | "none"
+    peak_severity: Severity
 
 
 class TimelinePoint(BaseModel):
     frame: int
     time_s: float
-    threat_level: str
+    threat_level: ThreatLevel
     alert_active: bool
 
 

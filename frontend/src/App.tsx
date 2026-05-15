@@ -9,6 +9,7 @@ import SignalGraph from './components/SignalGraph';
 import SimulationControls from './components/SimulationControls';
 import SourceSelector from './components/SourceSelector';
 import ThreatBanner from './components/ThreatBanner';
+import { WS_URL } from './lib/config';
 import { RadarWebSocket } from './lib/websocket';
 import {
   DEFAULT_DT_S,
@@ -37,7 +38,6 @@ function pickPrimary(targets: TargetState[]): TargetState | null {
   })[0];
 }
 
-const WS_URL = 'ws://localhost:8000/ws/radar';
 const MAX_HISTORY = 60;
 const TOAST_MS = 3500;
 const MOCK_TICK_MS = DEFAULT_DT_S * 1000;

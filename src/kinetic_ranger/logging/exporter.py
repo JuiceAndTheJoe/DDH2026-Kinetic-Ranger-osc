@@ -63,7 +63,7 @@ def export_run(run_dir: str | Path) -> dict[str, Path]:
         alerts_writer.writeheader()
         telemetry_writer.writeheader()
 
-        for observation, _estimate, alert, telemetry in reader.iter_snapshots():
+        for observation, _estimate, alert, telemetry, _range_m in reader.iter_snapshots():
             obs_writer.writerow(observation.to_dict())
             alerts_writer.writerow(alert.to_dict())
             if telemetry is not None:

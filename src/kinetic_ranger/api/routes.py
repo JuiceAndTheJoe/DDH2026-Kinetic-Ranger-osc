@@ -20,6 +20,7 @@ from .schemas import (
     RecordingStopResponse,
     RunSummary,
     SeekRequest,
+    Severity,
     SimulationConfigRequest,
     SimulationControlRequest,
     SimulationStatus,
@@ -39,7 +40,7 @@ _SEVERITY_RANK = {"none": 0, "info": 1, "warning": 2, "critical": 3}
 _RANK_TO_SEVERITY = {v: k for k, v in _SEVERITY_RANK.items()}
 
 
-def _peak_severity(run_path: Path) -> str:
+def _peak_severity(run_path: Path) -> "Severity":
     """Scan snapshots.jsonl for the highest alert severity reached."""
     snapshots = run_path / "snapshots.jsonl"
     if not snapshots.exists():
@@ -61,7 +62,8 @@ def _peak_severity(run_path: Path) -> str:
                     peak = rank
     except (OSError, json.JSONDecodeError):
         return "none"
-    return _RANK_TO_SEVERITY.get(peak, "none")
+    result = _RANK_TO_SEVERITY.get(peak, "none")
+    return result  # type: ignore[return-value]
 
 
 def _load_manifest(run_path: Path) -> dict | None:
@@ -139,7 +141,7 @@ def run_timeline(run_id: str, request: Request) -> list[TimelinePoint]:
     run_path = _resolve_run_dir(request, run_id)
     reader = RunReader(run_path)
     points: list[TimelinePoint] = []
-    for frame_index, (observation, estimate, alert, _) in enumerate(reader.iter_snapshots()):
+    for frame_index, (observation, estimate, alert, _, _range_m) in enumerate(reader.iter_snapshots()):
         del estimate  # only need timing + alert state
         severity = str(alert.severity).lower()
         threat_level = (
@@ -148,11 +150,7 @@ def run_timeline(run_id: str, request: Request) -> list[TimelinePoint]:
             else "HIGH"
             if severity == "warning"
             else "LOW"
-            if severity == "info"
-            else "NONE"
         )
-        if not alert.active:
-            threat_level = "NONE"
         points.append(
             TimelinePoint(
                 frame=frame_index,

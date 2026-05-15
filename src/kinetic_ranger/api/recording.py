@@ -82,7 +82,8 @@ class RecordingController:
             if writer is None:
                 return
             writer.log_snapshot(
-                frame.observation, frame.estimate, frame.alert, frame.telemetry
+                frame.observation, frame.estimate, frame.alert, frame.telemetry,
+                range_m=frame.range_m,
             )
             self._tick_count += 1
 

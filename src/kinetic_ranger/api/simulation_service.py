@@ -43,11 +43,12 @@ from .schemas import (
     ReceiverInfo,
     TargetDisplay,
     TargetState,
+    ThreatLevel,
 )
 
 logger = logging.getLogger(__name__)
 
-_SEVERITY_TO_THREAT: dict[str, str] = {
+_SEVERITY_TO_THREAT: dict[str, ThreatLevel] = {
     "critical": "CRITICAL",
     "warning": "HIGH",
     "info": "LOW",
@@ -71,6 +72,14 @@ def _generate_windows(radio: RadioConfig, sim: SimulationConfig) -> list[IQWindo
     return SimulatedApproachCapture(radio, sim).iter_windows()
 
 
+def _interpolate_range_m(start_range_m: float, end_range_m: float, steps: int, index: int) -> float:
+    """Linear start→end range for one synthetic tick index."""
+    if steps <= 1:
+        return start_range_m
+    frac = _clamp(index / (steps - 1), 0.0, 1.0)
+    return start_range_m + (end_range_m - start_range_m) * frac
+
+
 @dataclass(slots=True)
 class Frame:
     """Rich per-tick state. The wire payload is a projection of this."""
@@ -91,6 +100,7 @@ class Frame:
     paused: bool = False
     # Simulation truth metadata — not RF-estimated. None for live/replay sources.
     altitude_m: float | None = None
+    range_m: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -104,9 +114,9 @@ def _frame_to_target_state(frame: Frame) -> TargetState:
     estimate = frame.estimate
     alert = frame.alert
 
-    threat_level = _SEVERITY_TO_THREAT.get(alert.severity, "LOW")
-    if not alert.active:
-        threat_level = "NONE"
+    # Threat level reflects current rule-engine severity even before the
+    # sustained-hit gate flips alert.active=true.
+    threat_level: ThreatLevel = _SEVERITY_TO_THREAT.get(alert.severity, "LOW")
 
     ttc = estimate.time_to_impact_s
     estimated_ttc_s = ttc if ttc is not None else -1.0
@@ -121,9 +131,9 @@ def _frame_to_target_state(frame: Frame) -> TargetState:
         rssi_db=round(obs.rssi_dbfs, 2),
         rssi_slope_db_s=round(frame.rssi_slope_db_s, 3),
         estimated_ttc_s=round(estimated_ttc_s, 2),
-        # Absolute range is unobservable without a known Tx power. Send the
-        # -1.0 sentinel; frontend treats negative values as "unknown".
-        range_m=-1.0,
+        # Absolute range is unobservable from RF-only inputs in live/replay.
+        # For simulation we have truth range and expose it for better UX.
+        range_m=round(frame.range_m, 2) if frame.range_m is not None else -1.0,
         confidence=round(_clamp(estimate.confidence, 0.0, 1.0), 3),
         threat_level=threat_level,
         closing=closing,
@@ -196,6 +206,8 @@ class _DroneState:
     bearing_base_deg: float  # evenly-distributed compass bearing for this drone
     loop_duration_s: float
     altitude_m: float        # stored for future display / GPS validation
+    start_range_m: float
+    end_range_m: float
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +266,8 @@ class SimulationService:
             bearing_base_deg=bearing_base,
             loop_duration_s=len(windows) * self._config.simulation.dt_s,
             altitude_m=self._config.simulation.altitude_m,
+            start_range_m=sim_cfg.start_range_m,
+            end_range_m=sim_cfg.end_range_m,
         )
 
     async def next_frames(self) -> list[Frame]:
@@ -276,8 +290,12 @@ class SimulationService:
                 drone.ekf = ClosingThreatEKF(self._config.estimator)
                 drone.alert_engine = AlertRuleEngine(self._config.alert)
                 drone.windows = new_windows
+                drone.start_range_m = sim_cfg.start_range_m
+                drone.end_range_m = sim_cfg.end_range_m
+                drone.loop_duration_s = len(new_windows) * self._config.simulation.dt_s
 
-            window = drone.windows[drone.index]
+            window_index = drone.index
+            window = drone.windows[window_index]
             drone.index += 1
 
             obs = await loop.run_in_executor(None, extract_observation, window)
@@ -288,6 +306,12 @@ class SimulationService:
             rssi_slope = estimate.rssi_slope_db_per_s
             # Small per-tick bearing drift keeps the blip from being perfectly static.
             bearing_deg = (drone.bearing_base_deg + drone.index * 0.5) % 360.0
+            true_range_m = _interpolate_range_m(
+                drone.start_range_m,
+                drone.end_range_m,
+                len(drone.windows),
+                window_index,
+            )
 
             frames.append(Frame(
                 observation=obs,
@@ -301,6 +325,7 @@ class SimulationService:
                 bearing_deg=bearing_deg,
                 tti_threshold_s=self._config.alert.tti_threshold_s,
                 altitude_m=drone.altitude_m,
+                range_m=true_range_m,
             ))
 
         self._last_frames = frames
@@ -376,9 +401,10 @@ class ReplayFrameSource:
         self._run_dir = Path(run_dir)
         self.run_id = self._run_dir.name
         reader = RunReader(self._run_dir)
-        self._observations: list[tuple[RadioObservation, TelemetrySample | None]] = (
-            list(reader.iter_observations())
-        )
+        self._observations: list[tuple[RadioObservation, TelemetrySample | None, float | None]] = [
+            (obs, tel, range_m)
+            for obs, _est, _alert, tel, range_m in reader.iter_snapshots()
+        ]
         if not self._observations:
             raise ValueError(f"Replay source has no observations: {self._run_dir}")
         self._index: int = 0
@@ -412,13 +438,14 @@ class ReplayFrameSource:
         self._reset_pipeline()
 
     def _emit_at(self, index: int) -> Frame:
-        observation, telemetry = self._observations[index]
+        observation, telemetry, range_m = self._observations[index]
         estimate = self._ekf.step(observation, telemetry)
         alert = self._alert_engine.evaluate(estimate, observation)
 
         time_s = self._loop_count * self._loop_duration_s + observation.timestamp_s
         rssi_slope = estimate.rssi_slope_db_per_s
-        bearing_deg = float((self._loop_count * 30 + (index + 1) * 3) % 360)
+        # Remove bearing drift for replayed runs
+        bearing_deg = 0.0
 
         frame = Frame(
             observation=observation,
@@ -435,6 +462,7 @@ class ReplayFrameSource:
             replay_index=index,
             replay_tick_count=self.tick_count,
             paused=self.paused,
+            range_m=range_m,
         )
         self._last_frame = frame
         return frame

@@ -35,7 +35,7 @@ class RunReader:
     def iter_snapshots(
         self,
     ) -> Iterator[
-        tuple[RadioObservation, ThreatEstimate, AlertDecision, TelemetrySample | None]
+        tuple[RadioObservation, ThreatEstimate, AlertDecision, TelemetrySample | None, float | None]
     ]:
         snapshots_path = self.path / "snapshots.jsonl"
         with snapshots_path.open("r", encoding="utf-8") as handle:
@@ -55,10 +55,11 @@ class RunReader:
                 telemetry = (
                     TelemetrySample(**telemetry_payload) if telemetry_payload else None
                 )
-                yield observation, estimate, alert, telemetry
+                range_m: float | None = row.get("range_m")
+                yield observation, estimate, alert, telemetry, range_m
 
     def iter_observations(
         self,
     ) -> Iterator[tuple[RadioObservation, TelemetrySample | None]]:
-        for observation, _estimate, _alert, telemetry in self.iter_snapshots():
+        for observation, _estimate, _alert, telemetry, _range_m in self.iter_snapshots():
             yield observation, telemetry

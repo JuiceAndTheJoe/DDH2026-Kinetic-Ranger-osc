@@ -9,8 +9,7 @@ import type {
   SourceState,
   TimelinePoint,
 } from "./types";
-
-const API_BASE = "http://localhost:8000";
+import { API_BASE } from "./config";
 
 async function request<T>(
   method: "GET" | "POST",
@@ -42,6 +41,9 @@ export const listRuns = (): Promise<RunSummary[]> => request("GET", "/runs");
 
 export const getTimeline = (runId: string): Promise<TimelinePoint[]> =>
   request("GET", `/runs/${encodeURIComponent(runId)}/timeline`);
+
+export const getAiSummary = (runId: string): Promise<{ summary: string }> =>
+  request("GET", `/runs/${encodeURIComponent(runId)}/ai_summary`);
 
 // ----- recording --------------------------------------------------------------
 
@@ -97,5 +99,4 @@ export const simulationConfig = (fields: {
   altitude_m?: number;
   scenario?: string;
   bursty?: boolean;
-}): Promise<SimulationStatus> =>
-  request("POST", "/simulation/config", fields);
+}): Promise<SimulationStatus> => request("POST", "/simulation/config", fields);

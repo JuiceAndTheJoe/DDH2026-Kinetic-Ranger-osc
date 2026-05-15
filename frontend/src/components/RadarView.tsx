@@ -479,8 +479,10 @@ export default function RadarView({ targets }: Props) {
             // at the top of the screen.
             const screenAngleDeg = t.display.bearing_deg - heading;
             const rad = screenAngleDeg * DEG2RAD;
-            const radialNorm = Math.min(1, t.range_m / maxRangeM);
-            const offRange = t.range_m > maxRangeM;
+            const hasRange = t.range_m >= 0;
+            const radialNorm = hasRange ? Math.min(1, t.range_m / maxRangeM) : 0;
+            const offRange = hasRange && t.range_m > maxRangeM;
+            const rangeLabel = hasRange ? formatRangeMeters(t.range_m) : '--';
             // Use vmin so a blip at full range traces a true circle with
             // radius matching the SVG outer ring, regardless of the
             // scope's aspect ratio.
@@ -497,13 +499,13 @@ export default function RadarView({ targets }: Props) {
                   top: '50%',
                   transform: `translate(${dx}vmin, ${dy}vmin)`,
                 }}
-                title={`${t.id} | ${t.threat_level} | range ${formatRangeMeters(t.range_m)} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'} | Sim Alt ${t.altitude_m != null ? t.altitude_m.toFixed(0) + 'm' : '--'}`}
+                title={`${t.id} | ${t.threat_level} | range ${rangeLabel} | bearing ${bearingLabel} | TTC ${t.estimated_ttc_s < 0 ? '--' : t.estimated_ttc_s.toFixed(1) + 's'} | Sim Alt ${t.altitude_m != null ? t.altitude_m.toFixed(0) + 'm' : '--'}`}
               >
                 <span
                   className={`radar-blip radar-blip--${t.threat_level.toLowerCase()}${offRange ? ' radar-blip--off-range' : ''}`}
                 />
                 <span className="radar-blip__label">
-                  {formatRangeMeters(t.range_m)} · {bearingLabel}
+                  {rangeLabel} · {bearingLabel}
                 </span>
               </div>
             );
