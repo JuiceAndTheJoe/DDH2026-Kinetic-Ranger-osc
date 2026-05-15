@@ -43,12 +43,18 @@ class SimulatedApproachCapture:
                 ) / (2.0 * self.simulation_config.dt_s)
 
             cfo_hz = -(self.radio_config.center_frequency_hz / SPEED_OF_LIGHT_MPS) * radial_velocity_mps
+            # Use slant range (3-D distance) for path loss so altitude_m affects RSSI realistically.
+            # When altitude_m = 0 this reduces to horizontal range_m, preserving old behaviour.
+            altitude_m = self.simulation_config.altitude_m
+            slant_range_m = math.sqrt(range_m ** 2 + altitude_m ** 2)
             rssi_dbfs = self.simulation_config.effective_power_db - (
-                10.0 * self.simulation_config.path_loss_exponent * math.log10(max(range_m, 1.0))
+                10.0 * self.simulation_config.path_loss_exponent * math.log10(max(slant_range_m, 1.0))
             )
             amplitude = _db_to_linear_amplitude(rssi_dbfs)
             phase = 2.0 * np.pi * cfo_hz * sample_times
             tone = amplitude * np.exp(1j * phase)
+            # TODO: use simulation_config.bursty to zero-out random windows, simulating
+            # intermittent TX bursts (low confidence / dropout periods).
             noise = self.simulation_config.noise_std * (
                 np.random.normal(size=self.radio_config.buffer_size)
                 + 1j * np.random.normal(size=self.radio_config.buffer_size)

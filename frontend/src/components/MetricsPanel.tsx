@@ -89,6 +89,12 @@ export default function MetricsPanel({ targets, timeS }: Props) {
                   {t.closing ? '▼ CLOSING' : '— STATIC'}
                 </span>
               </div>
+              <div className="metric">
+                <span className="metric-label">SIM ALT</span>
+                <span className="metric-value metric-value--meta">
+                  {t.altitude_m != null ? `${t.altitude_m.toFixed(0)} m` : '—'}
+                </span>
+              </div>
             </div>
           </div>
         ))

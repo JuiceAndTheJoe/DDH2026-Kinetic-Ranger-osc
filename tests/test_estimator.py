@@ -28,9 +28,9 @@ def test_estimator_tracks_closing_target() -> None:
     estimator_config = EstimatorConfig(
         carrier_frequency_hz=radio.center_frequency_hz,
         path_loss_exponent=simulation.path_loss_exponent,
-        initial_range_m=250.0,
-        initial_closing_rate_mps=-2.0,
-        initial_effective_power_db=simulation.effective_power_db,
+        initial_rssi_dbfs=-60.0,
+        initial_rssi_slope_db_per_s=0.0,
+        initial_closing_rate_mps=0.0,
     )
 
     capture = SimulatedApproachCapture(radio, simulation)
@@ -41,7 +41,9 @@ def test_estimator_tracks_closing_target() -> None:
         observation = extract_observation(window)
         estimates.append(estimator.step(observation))
 
-    assert estimates[-1].range_m < estimates[0].range_m
+    # RSSI rises as the target approaches; slope should be positive at the end.
+    assert estimates[-1].rssi_dbfs > estimates[0].rssi_dbfs
+    assert estimates[-1].rssi_slope_db_per_s > 0.0
     assert estimates[-1].closing_rate_mps < -1.0
     assert estimates[-1].time_to_impact_s is not None
     assert estimates[-1].confidence > 0.3

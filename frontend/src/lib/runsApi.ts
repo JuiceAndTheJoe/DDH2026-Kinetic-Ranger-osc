@@ -5,6 +5,7 @@ import type {
   RecordingStatus,
   RecordingStopResponse,
   RunSummary,
+  SimulationStatus,
   SourceState,
   TimelinePoint,
 } from "./types";
@@ -74,3 +75,27 @@ export const playSource = (): Promise<SourceState> =>
 
 export const seekSource = (frame: number): Promise<SourceState> =>
   request("POST", "/source/seek", { frame });
+
+// ----- simulation control -----------------------------------------------------
+
+export const getSimulationStatus = (): Promise<SimulationStatus> =>
+  request("GET", "/simulation/status");
+
+export const simulationControl = (
+  action: "start" | "pause" | "reset",
+): Promise<SimulationStatus> =>
+  request("POST", "/simulation/control", { action });
+
+export const simulationConfig = (fields: {
+  start_range_m?: number;
+  end_range_m?: number;
+  noise_std?: number;
+  steps?: number;
+  dt_s?: number;
+  drone_count?: number;
+  speed_mps?: number;
+  altitude_m?: number;
+  scenario?: string;
+  bursty?: boolean;
+}): Promise<SimulationStatus> =>
+  request("POST", "/simulation/config", fields);

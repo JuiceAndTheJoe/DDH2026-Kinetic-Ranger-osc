@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   SCENARIOS,
   getScenario,
   type ScenarioId,
 } from '../lib/scenarios';
+import {
+  getSimulationStatus,
+  simulationConfig,
+  simulationControl,
+} from '../lib/runsApi';
+import type { SimulationStatus } from '../lib/types';
 
 /**
  * UI scaffold — only the scenario picker is wired (it drives an in-app mock
@@ -24,22 +30,104 @@ export default function SimulationControls({
   disabledReason,
 }: Props) {
   const [droneCount, setDroneCount] = useState(1);
-  const [altitude, setAltitude] = useState(50);
-  const [speed, setSpeed] = useState(15);
+  const [altitude, setAltitude] = useState(80);
+  const [speed, setSpeed] = useState(12);
   const [startDistance, setStartDistance] = useState(220);
   const [noiseLevel, setNoiseLevel] = useState(0.0005);
   const [bursty, setBursty] = useState(false);
+
   const [isRunning, setIsRunning] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [simStatus, setSimStatus] = useState<SimulationStatus | null>(null);
+  const [notInSim, setNotInSim] = useState(false);
 
-  const handleStartPause = () => {
-    setIsRunning((r) => !r);
-    // TODO: POST /simulation/control { action: isRunning ? 'pause' : 'start' }
-  };
+  // Sync all form controls AND meta-state from a backend SimulationStatus.
+  // Call this after any operation that may have changed config values (apply,
+  // mount). Do NOT call this for pause/start/reset — those don't change config.
+  function syncControls(s: SimulationStatus) {
+    setSimStatus(s);
+    setIsRunning(!s.paused);
+    setDroneCount(s.drone_count);
+    setSpeed(s.speed_mps);
+    setAltitude(s.altitude_m);
+    onScenarioChange(s.scenario as ScenarioId);
+    setBursty(s.bursty);
+    setStartDistance(s.start_range_m);
+    setNoiseLevel(s.noise_std);
+    setNotInSim(false);
+  }
 
-  const handleReset = () => {
-    setIsRunning(false);
-    // TODO: POST /simulation/control { action: 'reset' }
-  };
+  // Sync state from backend on mount
+  useEffect(() => {
+    getSimulationStatus()
+      .then(syncControls)
+      .catch(() => {
+        // 409 = source is not sim; show a note but keep UI rendered
+        setNotInSim(true);
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Used by pause/start/reset — config values unchanged, only meta-state updates.
+  function applyStatus(s: SimulationStatus) {
+    setSimStatus(s);
+    setIsRunning(!s.paused);
+    setNotInSim(false);
+  }
+
+  async function handleStartPause() {
+    if (busy) return;
+    const action = isRunning ? 'pause' : 'start';
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationControl(action);
+      applyStatus(s);
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReset() {
+    if (busy) return;
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationControl('reset');
+      applyStatus(s);
+      setStatusMsg('Simulation reset.');
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleApplyConfig() {
+    if (busy) return;
+    setBusy(true);
+    setStatusMsg(null);
+    try {
+      const s = await simulationConfig({
+        start_range_m: startDistance,
+        noise_std: noiseLevel,
+        drone_count: droneCount,
+        speed_mps: speed,
+        altitude_m: altitude,
+        scenario,
+        bursty,
+      });
+      // Sync controls from backend-confirmed (possibly clamped) values.
+      syncControls(s);
+      setStatusMsg('Config applied — simulation restarted.');
+    } catch (e) {
+      setStatusMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const pickerDisabled = disabledReason !== null;
   const activeScenario = getScenario(scenario);
@@ -72,6 +160,11 @@ export default function SimulationControls({
           {pickerDisabled ? disabledReason : activeScenario.description}
         </p>
       </div>
+      {notInSim && (
+        <p className="sim-status sim-status--warn">
+          ⚠ Switch source to SIM to use controls.
+        </p>
+      )}
 
       <div className="controls-grid">
         <label className="ctrl-label">
@@ -87,11 +180,11 @@ export default function SimulationControls({
         </label>
 
         <label className="ctrl-label">
-          Altitude (m)
+          Sim Altitude (m)
           <input
             type="number"
             min={0}
-            max={400}
+            max={150}
             value={altitude}
             onChange={(e) => setAltitude(Number(e.target.value))}
             className="ctrl-input"
@@ -99,11 +192,11 @@ export default function SimulationControls({
         </label>
 
         <label className="ctrl-label">
-          Speed (m/s)
+          Sim Speed (m/s)
           <input
             type="number"
-            min={0}
-            max={50}
+            min={1}
+            max={60}
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
             className="ctrl-input"
@@ -111,11 +204,11 @@ export default function SimulationControls({
         </label>
 
         <label className="ctrl-label">
-          Start Dist (m)
+          Sim Start Dist (m)
           <input
             type="number"
             min={10}
-            max={1000}
+            max={2000}
             value={startDistance}
             onChange={(e) => setStartDistance(Number(e.target.value))}
             className="ctrl-input"
@@ -142,7 +235,10 @@ export default function SimulationControls({
             checked={bursty}
             onChange={(e) => setBursty(e.target.checked)}
             className="ctrl-checkbox"
+            disabled
+            title="Bursty transmission simulation is not yet implemented."
           />
+          <span className="ctrl-hint">Coming later</span>
         </label>
       </div>
 
@@ -150,17 +246,43 @@ export default function SimulationControls({
         <button
           className={`ctrl-btn ctrl-btn--${isRunning ? 'pause' : 'start'}`}
           onClick={handleStartPause}
+          disabled={busy || notInSim}
         >
           {isRunning ? '⏸ PAUSE' : '▶ START'}
         </button>
-        <button className="ctrl-btn ctrl-btn--reset" onClick={handleReset}>
+        <button
+          className="ctrl-btn ctrl-btn--reset"
+          onClick={handleReset}
+          disabled={busy || notInSim}
+        >
           ↺ RESET
+        </button>
+        <button
+          className="ctrl-btn ctrl-btn--apply"
+          onClick={handleApplyConfig}
+          disabled={busy || notInSim}
+        >
+          ✓ APPLY
         </button>
       </div>
 
       <p className="sim-status">
-        {isRunning ? '● SIMULATION RUNNING' : '○ SIMULATION PAUSED'}
+        {statusMsg
+          ? statusMsg
+          : isRunning
+            ? '● SIMULATION RUNNING'
+            : '○ SIMULATION PAUSED'}
       </p>
+
+      {simStatus && (
+        <p className="sim-config-info">
+          {simStatus.start_range_m.toFixed(0)} m → {simStatus.end_range_m.toFixed(0)} m
+          &nbsp;·&nbsp; {simStatus.speed_mps.toFixed(0)} m/s
+          &nbsp;·&nbsp; ~{simStatus.estimated_duration_s.toFixed(1)}s/loop
+          &nbsp;·&nbsp; alt {simStatus.altitude_m.toFixed(0)} m
+          &nbsp;·&nbsp; noise {simStatus.noise_std.toFixed(4)}
+        </p>
+      )}
     </div>
   );
 }

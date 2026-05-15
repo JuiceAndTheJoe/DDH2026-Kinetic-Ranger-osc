@@ -31,6 +31,8 @@ export interface TargetState {
   threat_level: ThreatLevel;
   closing: boolean;
   display: TargetDisplay;
+  /** Simulation truth metadata — not RF-estimated. Null for live/replay sources. */
+  altitude_m?: number | null;
 }
 
 export interface HistoryPoint {
@@ -101,4 +103,19 @@ export interface SourceState {
   replay_index: number | null;
   replay_tick_count: number | null;
   paused: boolean;
+}
+
+export interface SimulationStatus {
+  paused: boolean;
+  drone_count: number;
+  speed_mps: number;
+  altitude_m: number;
+  scenario: string;
+  bursty: boolean;
+  start_range_m: number;
+  end_range_m: number;
+  noise_std: number;
+  steps: number;
+  dt_s: number;
+  estimated_duration_s: number;
 }
