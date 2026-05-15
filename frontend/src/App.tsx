@@ -156,27 +156,27 @@ export default function App() {
       />
 
       <div className="dashboard-main">
-        <div className="dashboard-rail">
-          <div className="panel">
-            <div className="panel-header">SOURCE</div>
-            <SourceSelector mode={mode} onMessage={showToast} />
-          </div>
-          <div className="panel">
-            <div className="panel-header">CAPTURE RUN</div>
-            <RecordButton
-              mode={mode}
-              onRecordingStopped={() => setRunsRefreshKey((k) => k + 1)}
+        <div className="dashboard-left">
+          <div className="dashboard-rail">
+            <div className="panel">
+              <div className="panel-header">SOURCE</div>
+              <SourceSelector mode={mode} onMessage={showToast} />
+            </div>
+            <div className="panel">
+              <div className="panel-header">CAPTURE RUN</div>
+              <RecordButton
+                mode={mode}
+                onRecordingStopped={() => setRunsRefreshKey((k) => k + 1)}
+                onMessage={showToast}
+              />
+            </div>
+            <RunsPanel
+              activeRunId={sourceRunId}
+              refreshKey={runsRefreshKey}
               onMessage={showToast}
             />
           </div>
-          <RunsPanel
-            activeRunId={sourceRunId}
-            refreshKey={runsRefreshKey}
-            onMessage={showToast}
-          />
-        </div>
 
-        <div className="dashboard-left">
           <RadarView targets={payload?.targets ?? []} />
           {showScrubber && (
             <ReplayScrubber
