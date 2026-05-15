@@ -1,41 +1,50 @@
 .dashboard {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px;
-  min-height: 100svh;
+  height: 100svh;
+  overflow: hidden;
+  padding: 0;
   transition: background 0.6s ease;
 }
 
-/* Mode-driven viewport wash — sits behind everything, fades smoothly. */
+/* Mode cue is delivered via a soft edge vignette + a tinted header card,
+   NOT a full-screen wash — the map stays uncovered in the middle. */
 .dashboard::before {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: 1;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease, background 0.6s ease;
+  background: radial-gradient(
+    ellipse 100% 100% at center,
+    transparent 0%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.18) 85%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
 }
 
 .dashboard::after {
   content: '';
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: 2;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.6s ease, box-shadow 0.6s ease;
 }
 
-/* Replay mode — unmistakable warm amber take-over. */
+/* Replay mode — amber edge vignette + amber-tinted banner. */
 .dashboard[data-mode='replay']::before {
   opacity: 1;
-  background:
-    radial-gradient(circle at 15% 25%, rgba(255, 168, 64, 0.22), transparent 55%),
-    radial-gradient(circle at 85% 80%, rgba(255, 110, 40, 0.16), transparent 55%),
-    linear-gradient(160deg, rgba(60, 28, 6, 0.55), rgba(22, 12, 4, 0.4));
+  background: radial-gradient(
+    ellipse 100% 100% at center,
+    transparent 0%,
+    transparent 55%,
+    rgba(60, 28, 6, 0.45) 88%,
+    rgba(40, 18, 4, 0.7) 100%
+  );
 }
 
 .dashboard[data-mode='replay']::after {
@@ -44,46 +53,259 @@
               inset 0 0 90px rgba(255, 120, 40, 0.22);
 }
 
-.dashboard[data-mode='replay'] .threat-banner {
-  border-color: rgba(255, 168, 64, 0.55);
-  background: linear-gradient(120deg,
-              rgba(46, 24, 8, 0.95),
-              rgba(28, 14, 4, 0.92));
-}
-
-/* Live mode — calm green wash so the operator knows the radio is hot. */
+/* Live mode — calm green edge vignette + green-tinted banner. */
 .dashboard[data-mode='live']::before {
   opacity: 1;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(80, 255, 184, 0.12), transparent 50%),
-    linear-gradient(160deg, rgba(8, 34, 24, 0.4), rgba(4, 18, 14, 0.3));
+  background: radial-gradient(
+    ellipse 100% 100% at center,
+    transparent 0%,
+    transparent 55%,
+    rgba(8, 38, 24, 0.4) 88%,
+    rgba(4, 26, 18, 0.6) 100%
+  );
 }
 
-.dashboard[data-mode='live'] .threat-banner {
-  border-color: rgba(95, 255, 180, 0.45);
+.dashboard[data-mode='live']::after {
+  opacity: 1;
+  box-shadow: inset 0 0 0 2px rgba(95, 255, 180, 0.3),
+              inset 0 0 90px rgba(95, 255, 180, 0.18);
 }
 
-/* Simulation mode — keep the existing neutral dark, no overlay. */
+/* Simulation mode — neutral, no overlay (default ::before opacity 0). */
 
-.dashboard-main {
-  display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 2.1fr) minmax(0, 1fr);
-  gap: 20px;
-  flex: 1;
-}
+/* dashboard-main / dashboard-left no longer exist as wrappers — every
+   element is a sibling under .dashboard and gets absolutely positioned
+   over the radar background. */
 
-.dashboard-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-.dashboard-left,
 .dashboard-right {
+  position: absolute;
+  top: 96px;
+  right: 24px;
+  bottom: 132px;
+  width: 340px;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-left: 4px;
+  padding-right: 4px;
+  transition: transform 0.3s ease, opacity 0.25s ease;
+  scrollbar-gutter: stable;
+}
+
+/* Keep each card at its content height so the column scrolls instead of
+   silently shrinking children — without this, the simulation controls
+   panel would clip Speed / Noise / Start / Reset / status off the bottom
+   on shorter viewports. */
+.dashboard-right > *,
+.dashboard-rail > * {
+  flex-shrink: 0;
+}
+
+.dashboard-right--collapsed {
+  transform: translateX(calc(100% + 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dashboard-right .panel {
+  background: rgba(8, 14, 24, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(95, 140, 200, 0.45);
+  padding: 14px 16px;
+}
+
+.dashboard-right .panel-header {
+  margin-bottom: 10px;
+}
+
+/* Tighten internal spacings so the full simulation controls panel —
+   scenario + 6 inputs + 2 buttons + status — fits the column without
+   excessive scrolling on common viewport heights. */
+.dashboard-right .sim-controls .controls-grid {
+  gap: 8px;
+}
+
+.dashboard-right .sim-controls .ctrl-input,
+.dashboard-right .sim-controls .ctrl-range {
+  padding: 6px 8px;
+}
+
+.dashboard-right .sim-controls .ctrl-buttons {
+  margin-top: 10px;
+}
+
+.dashboard-right .sim-controls .scenario-picker {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.dashboard-right .metric {
+  padding: 8px 10px;
+}
+
+.dashboard-right .metrics-grid {
+  gap: 8px;
+}
+
+/* Visible scrollbar so the affordance reads even on the dark backdrop. */
+.dashboard-right::-webkit-scrollbar,
+.dashboard-rail::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dashboard-right::-webkit-scrollbar-thumb,
+.dashboard-rail::-webkit-scrollbar-thumb {
+  background: rgba(95, 140, 200, 0.45);
+  border-radius: 3px;
+}
+
+.dashboard-right::-webkit-scrollbar-thumb:hover,
+.dashboard-rail::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 170, 230, 0.65);
+}
+
+.dashboard-right,
+.dashboard-rail {
+  scrollbar-color: rgba(95, 140, 200, 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+.dashboard-right__toggle {
+  position: absolute;
+  top: 106px;
+  right: 376px;
+  z-index: 11;
+  width: 26px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(95, 140, 200, 0.55);
+  background: rgba(8, 14, 24, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #aac6ee;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: right 0.3s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-right__toggle:hover {
+  color: #d6ecff;
+  box-shadow: 0 0 12px rgba(90, 196, 255, 0.4);
+}
+
+.dashboard-right__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 196, 255, 0.65);
+}
+
+.dashboard-right__toggle--collapsed {
+  right: 12px;
+}
+
+/* The rail floats over the left edge of the radar so the map can extend
+   underneath. Cards keep their translucent panel background and gain a
+   slight backdrop blur so the map stays legible without washing them out. */
+.dashboard-rail {
+  position: absolute;
+  top: 96px;
+  left: 24px;
+  bottom: 24px;
+  width: 260px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  pointer-events: none;
+  overflow-y: auto;
+  padding-right: 4px;
+  transition: transform 0.3s ease, opacity 0.25s ease;
+}
+
+.dashboard-rail > * {
+  pointer-events: auto;
+}
+
+.dashboard-rail .panel {
+  background: rgba(8, 14, 24, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(95, 140, 200, 0.45);
+}
+
+/* Transparent variant: strips the card chrome so the inner controls
+   (segmented source picker, record button) read as floating elements
+   over the map. The controls themselves keep their own backgrounds. */
+.dashboard-rail .panel--transparent,
+.dashboard-right .panel--transparent {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.panel--transparent::after {
+  display: none;
+}
+
+.panel--transparent .panel-header:not(:first-child) {
+  margin-top: 14px;
+}
+
+/* Collapsed state: slide the rail off the left edge and fade it out so
+   the radar can be inspected without obstruction. The toggle button
+   stays anchored at the radar's left edge regardless. */
+.dashboard-rail--collapsed {
+  transform: translateX(calc(-100% - 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dashboard-rail__toggle {
+  position: absolute;
+  top: 106px;
+  left: 296px;
+  z-index: 11;
+  width: 26px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(95, 140, 200, 0.55);
+  background: rgba(8, 14, 24, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #aac6ee;
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: left 0.3s ease, box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-rail__toggle:hover {
+  color: #d6ecff;
+  box-shadow: 0 0 12px rgba(90, 196, 255, 0.4);
+}
+
+.dashboard-rail__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(90, 196, 255, 0.65);
+}
+
+.dashboard-rail__toggle--collapsed {
+  left: 12px;
 }
 
 .dashboard-right {
@@ -133,17 +355,59 @@
   margin-bottom: 14px;
 }
 
+/* Two colored "wings" with a clear middle behind the title. No backdrop
+   blur or border-as-rectangle — both would render across the transparent
+   middle and obfuscate what's behind. Mode-aware: the wing colour shifts
+   amber in replay and green in live, mirroring the edge vignette. */
 .threat-banner {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  z-index: 20;
   display: grid;
   grid-template-columns: minmax(0, 260px) minmax(0, 1fr) minmax(0, 220px);
   gap: 18px;
   align-items: center;
-  padding: 16px 22px;
-  background: linear-gradient(120deg, rgba(13, 26, 44, 0.95), rgba(11, 19, 33, 0.9));
-  border: 1px solid rgba(80, 130, 190, 0.35);
-  border-radius: 18px;
+  padding: 12px 22px;
+  background: linear-gradient(
+    90deg,
+    rgba(13, 26, 44, 0.82) 0%,
+    rgba(13, 26, 44, 0.65) 22%,
+    rgba(13, 26, 44, 0) 45%,
+    rgba(11, 19, 33, 0) 55%,
+    rgba(11, 19, 33, 0.65) 78%,
+    rgba(11, 19, 33, 0.82) 100%
+  );
+  border: none;
+  border-radius: 14px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
+  transition: background 0.6s ease;
+}
+
+.dashboard[data-mode='replay'] .threat-banner {
+  background: linear-gradient(
+    90deg,
+    rgba(58, 26, 6, 0.9) 0%,
+    rgba(58, 26, 6, 0.7) 22%,
+    rgba(58, 26, 6, 0) 45%,
+    rgba(38, 18, 4, 0) 55%,
+    rgba(38, 18, 4, 0.7) 78%,
+    rgba(38, 18, 4, 0.9) 100%
+  );
+}
+
+.dashboard[data-mode='live'] .threat-banner {
+  background: linear-gradient(
+    90deg,
+    rgba(8, 42, 26, 0.9) 0%,
+    rgba(8, 42, 26, 0.7) 22%,
+    rgba(8, 42, 26, 0) 45%,
+    rgba(6, 30, 20, 0) 55%,
+    rgba(6, 30, 20, 0.7) 78%,
+    rgba(6, 30, 20, 0.9) 100%
+  );
 }
 
 .threat-banner__connection {
@@ -236,8 +500,12 @@
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+/* The radar view is the canvas — it sits behind every overlay element
+   (banner, rail, right panel, scrubber) and fills the viewport. */
 .radar-view {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   display: flex;
   flex-direction: column;
 }
@@ -245,12 +513,8 @@
 .radar-scope {
   position: relative;
   flex: 1;
-  margin-top: 12px;
-  min-height: 500px;
-  border-radius: 18px;
   overflow: hidden;
   background: transparent;
-  border: 1px solid rgba(55, 90, 140, 0.35);
 }
 
 .radar-map {
@@ -264,6 +528,14 @@
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Hide Mapbox logo and the "© Mapbox © OpenStreetMap" attribution. */
+.radar-map .mapboxgl-ctrl-logo,
+.radar-map .mapboxgl-ctrl-attrib,
+.radar-map .mapboxgl-ctrl-bottom-left,
+.radar-map .mapboxgl-ctrl-bottom-right {
+  display: none !important;
 }
 
 .radar-overlay {
@@ -603,11 +875,35 @@
   box-shadow: 0 0 12px rgba(90, 196, 255, 0.85);
 }
 
+/* Floating control cluster — anchored to the bottom-right corner of the
+   viewport, sized to match the right panel's width so it reads as a
+   detached card below it. Translucent backing matches the side panels. */
 .radar-controls {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  width: 340px;
+  box-sizing: border-box;
+  z-index: 8;
   display: flex;
-  align-items: center;
-  gap: 18px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(8, 14, 24, 0.72);
+  border: 1px solid rgba(95, 140, 200, 0.45);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(3, 6, 14, 0.45);
+}
+
+/* Slider expands to fill remaining row space so each control row stays
+   inside the fixed 340px card width regardless of label/unit length. */
+.radar-controls .radar-range-slider {
+  flex: 1;
+  width: auto;
+  min-width: 60px;
 }
 
 .radar-heading-reset {
@@ -795,12 +1091,31 @@
 }
 
 @media (max-width: 1100px) {
-  .dashboard {
-    padding: 18px;
+  /* On narrower screens shrink the side rails so the map keeps a usable
+     middle band. The collapse toggles stay visible — there's no longer
+     any in-flow fallback because every chrome element is an overlay. */
+  .dashboard-rail {
+    width: 220px;
   }
 
-  .dashboard-main {
-    grid-template-columns: 1fr;
+  .dashboard-rail__toggle {
+    left: 256px;
+  }
+
+  .dashboard-right {
+    width: 280px;
+  }
+
+  .dashboard-right__toggle {
+    right: 316px;
+  }
+
+  .radar-controls {
+    width: 280px;
+  }
+
+  .replay-scrubber {
+    width: min(600px, calc(100% - 640px));
   }
 }
 
@@ -1100,9 +1415,19 @@
 /* -------- Replay scrubber --------------------------------------------------- */
 
 .replay-scrubber {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  width: min(720px, calc(100% - 760px));
   display: flex;
   flex-direction: column;
   gap: 10px;
+  background: rgba(8, 14, 24, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-color: rgba(95, 140, 200, 0.45);
 }
 
 .replay-scrubber__row {

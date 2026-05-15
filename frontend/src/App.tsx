@@ -33,6 +33,8 @@ export default function App() {
   const [runsRefreshKey, setRunsRefreshKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [scenario, setScenario] = useState<ScenarioId>(DEFAULT_SCENARIO);
+  const [railCollapsed, setRailCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   const wsRef = useRef<RadarWebSocket | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -149,63 +151,84 @@ export default function App() {
 
   return (
     <div className="dashboard" data-mode={mode ?? 'simulation'}>
+      <RadarView targets={payload?.targets ?? []} />
+
       <ThreatBanner
         summary={payload?.summary ?? null}
         connectionState={connectionState}
         mode={mode}
       />
 
-      <div className="dashboard-main">
-        <div className="dashboard-rail">
-          <div className="panel">
-            <div className="panel-header">SOURCE</div>
-            <SourceSelector mode={mode} onMessage={showToast} />
-          </div>
-          <div className="panel">
-            <div className="panel-header">CAPTURE RUN</div>
-            <RecordButton
-              mode={mode}
-              onRecordingStopped={() => setRunsRefreshKey((k) => k + 1)}
-              onMessage={showToast}
-            />
-          </div>
-          <RunsPanel
-            activeRunId={sourceRunId}
-            refreshKey={runsRefreshKey}
+      <button
+        type="button"
+        className={`dashboard-rail__toggle${railCollapsed ? ' dashboard-rail__toggle--collapsed' : ''}`}
+        onClick={() => setRailCollapsed((c) => !c)}
+        aria-label={railCollapsed ? 'Show side panel' : 'Hide side panel'}
+        aria-expanded={!railCollapsed}
+        title={railCollapsed ? 'Show side panel' : 'Hide side panel'}
+      >
+        <span aria-hidden="true">{railCollapsed ? '›' : '‹'}</span>
+      </button>
+      <div
+        className={`dashboard-rail${railCollapsed ? ' dashboard-rail--collapsed' : ''}`}
+        aria-hidden={railCollapsed}
+      >
+        <div className="panel panel--transparent">
+          <div className="panel-header">SOURCE</div>
+          <SourceSelector mode={mode} onMessage={showToast} />
+          <div className="panel-header">CAPTURE RUN</div>
+          <RecordButton
+            mode={mode}
+            onRecordingStopped={() => setRunsRefreshKey((k) => k + 1)}
             onMessage={showToast}
           />
         </div>
-
-        <div className="dashboard-left">
-          <RadarView targets={payload?.targets ?? []} />
-          {showScrubber && (
-            <ReplayScrubber
-              runId={sourceRunId!}
-              currentFrame={replayIndex ?? 0}
-              tickCount={replayTickCount!}
-              paused={paused}
-              onMessage={showToast}
-            />
-          )}
-        </div>
-
-        <div className="dashboard-right">
-          <MetricsPanel
-            targets={payload?.targets ?? []}
-            timeS={payload?.time_s ?? 0}
-          />
-          <SignalGraph history={history} />
-          <SimulationControls
-            scenario={scenario}
-            onScenarioChange={setScenario}
-            disabledReason={
-              scenarioPickerDisabled
-                ? 'Scenario picker only applies to simulation source'
-                : null
-            }
-          />
-        </div>
+        <RunsPanel
+          activeRunId={sourceRunId}
+          refreshKey={runsRefreshKey}
+          onMessage={showToast}
+        />
       </div>
+
+      <button
+        type="button"
+        className={`dashboard-right__toggle${rightCollapsed ? ' dashboard-right__toggle--collapsed' : ''}`}
+        onClick={() => setRightCollapsed((c) => !c)}
+        aria-label={rightCollapsed ? 'Show metrics panel' : 'Hide metrics panel'}
+        aria-expanded={!rightCollapsed}
+        title={rightCollapsed ? 'Show metrics panel' : 'Hide metrics panel'}
+      >
+        <span aria-hidden="true">{rightCollapsed ? '‹' : '›'}</span>
+      </button>
+      <div
+        className={`dashboard-right${rightCollapsed ? ' dashboard-right--collapsed' : ''}`}
+        aria-hidden={rightCollapsed}
+      >
+        <MetricsPanel
+          targets={payload?.targets ?? []}
+          timeS={payload?.time_s ?? 0}
+        />
+        <SignalGraph history={history} />
+        <SimulationControls
+          scenario={scenario}
+          onScenarioChange={setScenario}
+          disabledReason={
+            scenarioPickerDisabled
+              ? 'Scenario picker only applies to simulation source'
+              : null
+          }
+        />
+      </div>
+
+      {showScrubber && (
+        <ReplayScrubber
+          runId={sourceRunId!}
+          currentFrame={replayIndex ?? 0}
+          tickCount={replayTickCount!}
+          paused={paused}
+          onMessage={showToast}
+        />
+      )}
 
       {toast && <div className="toast">{toast}</div>}
     </div>
