@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request, HTTPException
 from kinetic_ranger.logging import RunReader
 from kinetic_ranger.models import AlertDecision, RadioObservation, TelemetrySample, ThreatEstimate
 from kinetic_ranger.ai.vertex_summarizer import (
+    AISummaryError,
     VertexAISummarizer,
     ai_summaries_enabled,
 )
@@ -106,8 +107,10 @@ def _build_run_facts(
                 )
             ):
                 peak_fact = fact
-        if fact["ttc_s"] is not None and (
-            min_ttc_fact is None or fact["ttc_s"] < min_ttc_fact["ttc_s"]
+        current_ttc_s = fact["ttc_s"]
+        min_ttc_s = min_ttc_fact["ttc_s"] if min_ttc_fact is not None else None
+        if current_ttc_s is not None and (
+            min_ttc_s is None or current_ttc_s < min_ttc_s
         ):
             min_ttc_fact = fact
 
@@ -163,5 +166,8 @@ def ai_summary(run_id: str, request: Request) -> dict:
     reader = RunReader(run_path)
     run_facts = _build_run_facts(run_id, reader.iter_snapshots())
     summarizer = VertexAISummarizer()
-    summary = summarizer.summarize_run(run_facts)
+    try:
+        summary = summarizer.summarize_run(run_facts)
+    except AISummaryError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"summary": summary}

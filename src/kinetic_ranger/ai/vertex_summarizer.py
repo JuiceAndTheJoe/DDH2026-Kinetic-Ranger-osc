@@ -1,16 +1,22 @@
 import os
 from typing import List, Optional
 
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from google import genai
+from google.auth.exceptions import GoogleAuthError
+from google.genai.errors import APIError
 
 PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash")
+_GENAI_EXCEPTIONS = (APIError, GoogleAuthError, ValueError, RuntimeError)
 
 
 def ai_summaries_enabled() -> bool:
     return os.getenv("KR_AI_SUMMARIES_ENABLED", "false").lower() == "true"
+
+
+class AISummaryError(RuntimeError):
+    """Raised when a real AI summary cannot be generated or validated."""
 
 
 class VertexAISummarizer:
@@ -25,21 +31,24 @@ class VertexAISummarizer:
         self.model = model or MODEL
 
     def _generate(self, prompt: str, location: str) -> str:
-        vertexai.init(project=self.project, location=location)
-        gemini = GenerativeModel(self.model)
-        response = gemini.generate_content(prompt)
-        return response.text.strip()
+        client = genai.Client(
+            vertexai=True,
+            project=self.project,
+            location=location,
+        )
+        response = client.models.generate_content(model=self.model, contents=prompt)
+        text = response.text or ""
+        return text.strip()
 
     def summarize_run(self, run_facts: dict) -> str:
         """Summarize one replay run using precomputed authoritative facts."""
         if not run_facts.get("total_frames"):
             return "No events to summarize."
         prompt = self._format_prompt(run_facts)
-        fallback_summary = self._deterministic_summary(run_facts)
         try:
             response = self._generate(prompt, self.location)
-            return self._validated_summary(response, run_facts, fallback_summary)
-        except Exception as e:
+            return self._validated_summary(response, run_facts)
+        except _GENAI_EXCEPTIONS as e:
             message = str(e)
             if self.location != "global" and "501" in message and (
                 "not implemented" in message.lower()
@@ -48,10 +57,12 @@ class VertexAISummarizer:
             ):
                 try:
                     response = self._generate(prompt, "global")
-                    return self._validated_summary(response, run_facts, fallback_summary)
-                except Exception as fallback_error:
-                    return fallback_summary
-            return fallback_summary
+                    return self._validated_summary(response, run_facts)
+                except _GENAI_EXCEPTIONS as fallback_error:
+                    raise AISummaryError(
+                        f"AI summary request failed after retrying global location: {fallback_error}"
+                    ) from fallback_error
+            raise AISummaryError(f"AI summary request failed: {message}") from e
 
     def summarize_events(self, events: List[dict]) -> str:
         """Backward-compatible helper for older callers that only have raw events."""
@@ -122,48 +133,24 @@ class VertexAISummarizer:
             "Highlights:\n" + "\n".join(highlight_lines)
         )
 
-    def _deterministic_summary(self, run_facts: dict) -> str:
-        peak_threat = run_facts["peak_threat_level"]
-        min_ttc = run_facts.get("min_ttc_s")
-        min_alert_ttc = run_facts.get("min_ttc_during_alert_s")
-        active_frames = run_facts.get("active_alert_frames", 0)
-        trend = run_facts.get("signal_trend", "stable")
-
-        first_alert_time = run_facts.get("first_alert_time_s")
-
-        if active_frames > 0 and first_alert_time is not None:
-            first_sentence = (
-                f"A {peak_threat} threat was detected, with an active alert triggered at "
-                f"{first_alert_time:.1f} seconds into the recording."
-            )
-        elif active_frames > 0:
-            first_sentence = f"A {peak_threat} threat was detected and triggered an active alert."
-        else:
-            first_sentence = (
-                f"A {peak_threat} threat level was reached but did not sustain long enough to trigger an active alert."
-            )
-
-        effective_ttc = min_alert_ttc if min_alert_ttc is not None else min_ttc
-        if effective_ttc is not None:
-            second_sentence = f"The closest estimated time to collision was {effective_ttc:.1f} seconds."
-        else:
-            second_sentence = "No time-to-collision estimate was available during this recording."
-
-        third_sentence = f"The signal was {trend} throughout the recording."
-        return " ".join([first_sentence, second_sentence, third_sentence])
-
-    def _validated_summary(self, text: str, run_facts: dict, fallback_summary: str) -> str:
+    def _validated_summary(self, text: str, run_facts: dict) -> str:
         normalized = text.strip()
         if not normalized:
-            return fallback_summary
+            raise AISummaryError("AI summary response was empty.")
         lower = normalized.lower()
         peak = run_facts.get("peak_threat_level", "LOW")
         active_frames = run_facts.get("active_alert_frames", 0)
 
         if peak == "CRITICAL" and "critical" not in lower:
-            return fallback_summary
+            raise AISummaryError(
+                "AI summary response did not preserve the CRITICAL threat level."
+            )
         if peak == "HIGH" and not any(token in lower for token in ["high", "warning"]):
-            return fallback_summary
+            raise AISummaryError(
+                "AI summary response did not preserve the HIGH threat level."
+            )
         if active_frames == 0 and any(token in lower for token in ["critical threat", "high threat"]):
-            return fallback_summary
+            raise AISummaryError(
+                "AI summary response claimed an elevated active threat that was not present."
+            )
         return normalized

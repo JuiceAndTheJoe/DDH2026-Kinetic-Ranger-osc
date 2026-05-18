@@ -21,7 +21,7 @@ dev = [
     "pytest>=8.2",
 ]
 ai = [
-    "google-cloud-aiplatform>=1.60",
+    "google-genai>=2.4.0",
 ]
 hardware = [
     "pyadi-iio>=0.0.17",

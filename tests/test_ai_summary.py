@@ -2,7 +2,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from kinetic_ranger.ai.vertex_summarizer import VertexAISummarizer
+from kinetic_ranger.ai.vertex_summarizer import AISummaryError, VertexAISummarizer
 from kinetic_ranger.api.ai_summary import _build_run_facts
 from kinetic_ranger.api.main import app
 from kinetic_ranger.models import AlertDecision, RadioObservation, ThreatEstimate
@@ -74,8 +74,13 @@ def test_build_run_facts_tracks_peak_threat_not_majority_label():
     assert facts["signal_trend"] == "strengthening"
 
 
-def test_validated_summary_falls_back_when_model_downgrades_peak_threat():
-    summarizer = VertexAISummarizer(project="dummy", location="global", model="dummy")
+def test_summarize_run_raises_when_model_downgrades_peak_threat():
+    class DowngradingSummarizer(VertexAISummarizer):
+        def _generate(self, prompt: str, location: str) -> str:
+            del prompt, location
+            return "A drone maintained a consistent info threat level throughout the observation."
+
+    summarizer = DowngradingSummarizer(project="dummy", location="global", model="dummy")
     run_facts = {
         "run_id": "run-1",
         "total_frames": 5,
@@ -95,12 +100,49 @@ def test_validated_summary_falls_back_when_model_downgrades_peak_threat():
         "highlights": [],
     }
 
-    fallback = summarizer._deterministic_summary(run_facts)
-    validated = summarizer._validated_summary(
-        "A drone maintained a consistent info threat level throughout the observation.",
-        run_facts,
-        fallback,
-    )
+    with pytest.raises(AISummaryError, match="HIGH threat level"):
+        summarizer.summarize_run(run_facts)
 
-    assert validated == fallback
-    assert "HIGH" in validated
+
+def test_summarize_run_raises_when_model_call_fails():
+    class FailingSummarizer(VertexAISummarizer):
+        def _generate(self, prompt: str, location: str) -> str:
+            del prompt, location
+            raise RuntimeError("boom")
+
+    summarizer = FailingSummarizer(project="dummy", location="global", model="dummy")
+    run_facts = {
+        "run_id": "run-2",
+        "total_frames": 3,
+        "duration_s": 2.0,
+        "peak_severity": "critical",
+        "peak_threat_level": "CRITICAL",
+        "active_alert_frames": 1,
+        "active_alert_ratio": 0.333,
+        "first_alert_time_s": 1.0,
+        "min_ttc_s": 4.6,
+        "min_ttc_during_alert_s": 4.6,
+        "signal_trend": "weakening",
+        "start_rssi_db": -54.0,
+        "end_rssi_db": -62.0,
+        "peak_rssi_db": -51.0,
+        "reasons_seen": ["test"],
+        "highlights": [],
+    }
+
+    with pytest.raises(AISummaryError, match="AI summary request failed"):
+        summarizer.summarize_run(run_facts)
+
+
+def test_ai_summary_endpoint_returns_502_when_ai_fails(monkeypatch):
+    def _boom(self, run_facts: dict) -> str:
+        del self, run_facts
+        raise AISummaryError("AI summary request failed: backend unavailable")
+
+    monkeypatch.setattr(VertexAISummarizer, "summarize_run", _boom)
+
+    with TestClient(app) as client:
+        response = client.get("/runs/20260518-134645_dashboard/ai_summary")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "AI summary request failed: backend unavailable"
