@@ -168,7 +168,7 @@ export default function App() {
 
   return (
     <div className="dashboard" data-mode={mode ?? 'simulation'}>
-      <RadarView targets={payload?.targets ?? []} />
+      <RadarView targets={payload?.targets ?? []} mode={mode} />
 
       <ThreatBanner
         summary={payload?.summary ?? null}
@@ -224,17 +224,20 @@ export default function App() {
         <MetricsPanel
           targets={payload?.targets ?? []}
           timeS={payload?.time_s ?? 0}
+          mode={mode}
         />
         <SignalGraph history={history} />
-        <SimulationControls
-          scenario={scenario}
-          onScenarioChange={setScenario}
-          disabledReason={
-            scenarioPickerDisabled
-              ? 'Scenario picker only applies to simulation source'
-              : null
-          }
-        />
+        {mode !== 'live' && (
+          <SimulationControls
+            scenario={scenario}
+            onScenarioChange={setScenario}
+            disabledReason={
+              scenarioPickerDisabled
+                ? 'Scenario picker only applies to simulation source'
+                : null
+            }
+          />
+        )}
       </div>
 
       {showScrubber && (

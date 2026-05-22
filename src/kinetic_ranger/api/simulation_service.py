@@ -367,7 +367,11 @@ class LiveFrameSource:
         rssi_slope = estimate.rssi_slope_db_per_s
 
         self._tick_index += 1
-        bearing_deg = float((self._tick_index * 3) % 360)
+        # Bearing is not estimable from a single passive RF antenna without
+        # direction-finding hardware (e.g., phased array / two-channel AoA).
+        # Use 0.0 as a placeholder so the blip sits at North rather than
+        # spinning artificially. Replace with a real AoA readout when available.
+        bearing_deg = 0.0
 
         return [Frame(
             observation=obs,

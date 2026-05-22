@@ -3,6 +3,7 @@ import type { TargetState } from '../lib/types';
 interface Props {
   targets: TargetState[];
   timeS: number;
+  mode: import('../lib/types').Mode | null;
 }
 
 function formatTtc(ttc: number): string {
@@ -16,7 +17,7 @@ function compassFor(bearingDeg: number): string {
   return COMPASS_POINTS[index];
 }
 
-export default function MetricsPanel({ targets, timeS }: Props) {
+export default function MetricsPanel({ targets, timeS, mode }: Props) {
   return (
     <div className="panel metrics-panel">
       <div className="panel-header">
@@ -33,8 +34,9 @@ export default function MetricsPanel({ targets, timeS }: Props) {
             <div className="metrics-grid">
               <div className="metric">
                 <span className="metric-label">RANGE</span>
-                <span className="metric-value">{t.range_m.toFixed(0)} m</span>
+                <span className="metric-value">{t.range_m < 0 ? '—' : `${t.range_m.toFixed(0)} m`}</span>
               </div>
+              {mode !== 'live' && (
               <div className="metric">
                 <span className="metric-label">BEARING</span>
                 <span className="metric-value">
@@ -49,6 +51,7 @@ export default function MetricsPanel({ targets, timeS }: Props) {
                   <span className="bearing-cardinal">{compassFor(t.display.bearing_deg)}</span>
                 </span>
               </div>
+              )}
               <div className="metric">
                 <span className="metric-label">RSSI</span>
                 <span className="metric-value">{t.rssi_db.toFixed(1)} dBm</span>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { TargetState } from '../lib/types';
+import type { Mode, TargetState } from '../lib/types';
 
 /**
  * Per-bearing signal-strength ring drawn around the radar perimeter.
@@ -40,8 +40,21 @@ function computeSpectrum(targets: TargetState[], bins: number): number[] {
   return spectrum;
 }
 
+/**
+ * Omnidirectional spectrum for live mode: no bearing info available, so all
+ * bins get a uniform amplitude derived from the mean RSSI of active targets.
+ * This shows "signal detected everywhere" rather than implying a direction.
+ */
+function computeOmniSpectrum(targets: TargetState[], bins: number): number[] {
+  if (targets.length === 0) return new Array<number>(bins).fill(SPECTRUM_NOISE_FLOOR);
+  const meanRssi = targets.reduce((s, t) => s + t.rssi_db, 0) / targets.length;
+  const amplitude = Math.min(1, Math.max(SPECTRUM_NOISE_FLOOR, (meanRssi + 90) / 30));
+  return new Array<number>(bins).fill(amplitude);
+}
+
 interface Props {
   targets: TargetState[];
+  mode: Mode | null;
 }
 
 /**
@@ -91,7 +104,7 @@ function formatRangeMeters(m: number): string {
   return `${Math.round(m)}m`;
 }
 
-export default function RadarView({ targets }: Props) {
+export default function RadarView({ targets, mode }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
 
@@ -278,7 +291,13 @@ export default function RadarView({ targets }: Props) {
 
   const lowAccuracy = locationStatus === 'acquired' && accuracyM !== null && accuracyM > 100;
   // Per-bearing signal strength — recomputed when the target list changes.
-  const spectrum = useMemo(() => computeSpectrum(targets, SPECTRUM_BINS), [targets]);
+  const spectrum = useMemo(
+    () =>
+      mode === 'live'
+        ? computeOmniSpectrum(targets, SPECTRUM_BINS)
+        : computeSpectrum(targets, SPECTRUM_BINS),
+    [targets, mode],
+  );
 
   const mapStatusLabel =
     mapStatus === 'missing-token'
@@ -473,7 +492,7 @@ export default function RadarView({ targets }: Props) {
             <text x={100 - RADAR_OUTER_R - 5} y={101.6} fill="#aac6ee" stroke="#0a111d" strokeWidth="0.9" paintOrder="stroke" fontSize="4.2" fontFamily="JetBrains Mono, monospace" textAnchor="end" letterSpacing="0.5">W</text>
           </svg>
 
-          {targets.map((t) => {
+          {mode !== 'live' && targets.map((t) => {
             // The blip's bearing is in compass degrees (clockwise from north).
             // Subtract the heading so that the operator's facing direction sits
             // at the top of the screen.
