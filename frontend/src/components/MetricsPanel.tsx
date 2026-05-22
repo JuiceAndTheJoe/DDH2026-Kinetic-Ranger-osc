@@ -37,20 +37,20 @@ export default function MetricsPanel({ targets, timeS, mode }: Props) {
                 <span className="metric-value">{t.range_m < 0 ? '—' : `${t.range_m.toFixed(0)} m`}</span>
               </div>
               {mode !== 'live' && (
-              <div className="metric">
-                <span className="metric-label">BEARING</span>
-                <span className="metric-value">
-                  <span
-                    className="bearing-arrow"
-                    style={{ transform: `rotate(${t.display.bearing_deg}deg)` }}
-                    aria-hidden
-                  >
-                    ↑
+                <div className="metric">
+                  <span className="metric-label">BEARING</span>
+                  <span className="metric-value">
+                    <span
+                      className="bearing-arrow"
+                      style={{ transform: `rotate(${t.display.bearing_deg}deg)` }}
+                      aria-hidden
+                    >
+                      ↑
+                    </span>
+                    {t.display.bearing_deg.toFixed(0)}°
+                    <span className="bearing-cardinal">{compassFor(t.display.bearing_deg)}</span>
                   </span>
-                  {t.display.bearing_deg.toFixed(0)}°
-                  <span className="bearing-cardinal">{compassFor(t.display.bearing_deg)}</span>
-                </span>
-              </div>
+                </div>
               )}
               <div className="metric">
                 <span className="metric-label">RSSI</span>
