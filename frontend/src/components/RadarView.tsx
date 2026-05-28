@@ -187,9 +187,31 @@ export default function RadarView({ targets, mode }: Props) {
     };
   }, []);
 
+  // Mapbox token comes from the backend at runtime, not VITE_* bake-time,
+  // so it can be supplied by the deploy environment (OSC parameter store)
+  // without committing it to the public bundle.
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/runtime-config')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((cfg: { mapboxToken?: string }) => {
+        if (cancelled) return;
+        setMapboxToken(cfg.mapboxToken ?? '');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMapboxToken('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Mapbox
   useEffect(() => {
-    const token = import.meta.env.VITE_MAPBOX_TOKEN;
+    if (mapboxToken === null) return undefined; // still fetching
+    const token = mapboxToken;
     if (!mapContainerRef.current) return undefined;
 
     if (!token) {
@@ -256,7 +278,7 @@ export default function RadarView({ targets, mode }: Props) {
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [mapboxToken]);
 
   // Refit whenever range, position, or heading changes (post-mount).
   useEffect(() => {

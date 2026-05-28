@@ -112,6 +112,15 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/runtime-config")
+async def runtime_config() -> dict[str, str]:
+    # Runtime-injected, non-secret-by-design values that the SPA needs at
+    # boot. Vite bakes VITE_* env vars at build time, which is the wrong
+    # lifecycle for tokens we don't want shipped in the committed bundle;
+    # serving them here lets OSC's parameter store supply them per-deploy.
+    return {"mapboxToken": os.environ.get("MAPBOX_TOKEN", "")}
+
+
 if _FRONTEND_DIST.is_dir():
     # Mount the SPA last so API/WS routes win the prefix race. The
     # html=True flag makes StaticFiles serve index.html at "/", and the
