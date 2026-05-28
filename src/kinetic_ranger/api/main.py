@@ -9,7 +9,7 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from dotenv import load_dotenv
@@ -107,6 +107,7 @@ app.include_router(ai_summary_router)
 
 
 @app.get("/health")
+@app.get("/healthz")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
@@ -124,11 +125,18 @@ if _FRONTEND_DIST.is_dir():
 
     @app.exception_handler(StarletteHTTPException)
     async def _spa_fallback(request, exc):  # type: ignore[no-untyped-def]
+        # Rewrite 404 GETs that look like browser navigation back to
+        # index.html so client-side routes survive a hard reload. Anything
+        # else (API 404s, non-GETs, errors with another status) gets a
+        # plain JSON response — we must NOT re-raise here, because raising
+        # inside an exception handler escapes to the ASGI layer as a 500.
         if exc.status_code == 404 and request.method == "GET":
             accept = request.headers.get("accept", "")
             if "text/html" in accept:
                 return FileResponse(_FRONTEND_DIST / "index.html")
-        raise exc
+        return JSONResponse(
+            {"detail": exc.detail}, status_code=exc.status_code
+        )
 else:
     logger.info(
         "frontend/dist not found at %s; SPA will not be served by FastAPI",
