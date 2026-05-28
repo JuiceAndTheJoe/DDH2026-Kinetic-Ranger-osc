@@ -9,6 +9,9 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from dotenv import load_dotenv
 
 from kinetic_ranger.config import load_config
@@ -26,6 +29,10 @@ from .websocket import router as ws_router
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+
+# Repo-root-relative path to the built Vite bundle. The FastAPI process
+# serves it directly when it exists (production deploys, including OSC).
+_FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
 
 
 def _default_runs_root() -> Path:
@@ -63,9 +70,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="Kinetic Ranger API", version="0.1.0", lifespan=lifespan)
 
+# Cross-origin only matters when the SPA is served from a different host
+# (e.g. the Vite dev server on :5173). In single-process production deploys
+# the bundle is same-origin and CORS is a no-op.
+_allow_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "KR_CORS_ORIGINS", "http://localhost:5173"
+    ).split(",")
+    if o.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Vite dev server
+    allow_origins=_allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,3 +96,28 @@ app.include_router(ai_summary_router)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+if _FRONTEND_DIST.is_dir():
+    # Mount the SPA last so API/WS routes win the prefix race. The
+    # html=True flag makes StaticFiles serve index.html at "/", and the
+    # exception handler below rewrites unknown GETs to index.html so
+    # client-side routes survive a hard reload.
+    app.mount(
+        "/",
+        StaticFiles(directory=str(_FRONTEND_DIST), html=True),
+        name="spa",
+    )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _spa_fallback(request, exc):  # type: ignore[no-untyped-def]
+        if exc.status_code == 404 and request.method == "GET":
+            accept = request.headers.get("accept", "")
+            if "text/html" in accept:
+                return FileResponse(_FRONTEND_DIST / "index.html")
+        raise exc
+else:
+    logger.info(
+        "frontend/dist not found at %s; SPA will not be served by FastAPI",
+        _FRONTEND_DIST,
+    )

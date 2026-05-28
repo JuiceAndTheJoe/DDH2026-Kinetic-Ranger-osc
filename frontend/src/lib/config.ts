@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "http://localhost:8000";
+const DEV_API_BASE = "http://localhost:8000";
 const DEFAULT_WS_PATH = "/ws/radar";
 
 function trimTrailingSlash(value: string): string {
@@ -17,9 +17,19 @@ function deriveWsUrl(apiBase: string, wsPath: string): string {
   return `${normalizedApi}${path}`;
 }
 
+function defaultApiBase(): string {
+  if (typeof window !== "undefined" && window.location) {
+    // When served by the same FastAPI process (production deploys, including
+    // OSC), the API lives on the same origin as the SPA. Falling back to
+    // window.location.origin keeps the bundle URL-agnostic.
+    return window.location.origin;
+  }
+  return DEV_API_BASE;
+}
+
 export const API_BASE = trimTrailingSlash(
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
-    DEFAULT_API_BASE,
+    defaultApiBase(),
 );
 
 export const WS_URL =

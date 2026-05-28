@@ -19,6 +19,11 @@ dist/
 htmlcov/
 coverage.xml
 
+# Frontend production bundle IS committed (consumed by FastAPI when serving
+# the SPA in single-process deploys such as OSC).
+!frontend/dist/
+!frontend/dist/**
+
 # Local data and logs
 artifacts/
 logs/
