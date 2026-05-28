@@ -30,9 +30,22 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-# Repo-root-relative path to the built Vite bundle. The FastAPI process
-# serves it directly when it exists (production deploys, including OSC).
-_FRONTEND_DIST = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+def _resolve_frontend_dist() -> Path:
+    # Honor an explicit override first.
+    override = os.environ.get("KR_FRONTEND_DIST")
+    if override:
+        return Path(override)
+    # Editable / source-checkout layout: src/kinetic_ranger/api/main.py is at
+    # repo_root/src/kinetic_ranger/api/main.py, so parents[3] is repo_root.
+    src_layout = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    if src_layout.is_dir():
+        return src_layout
+    # Installed-package layout (e.g. OSC's site-packages install): __file__
+    # lives outside the repo, but the runtime CWD IS the repo root.
+    return Path.cwd() / "frontend" / "dist"
+
+
+_FRONTEND_DIST = _resolve_frontend_dist()
 
 
 def _default_runs_root() -> Path:
