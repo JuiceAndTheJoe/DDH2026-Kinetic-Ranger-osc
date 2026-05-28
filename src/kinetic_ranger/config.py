@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 import tomllib
 
 
+# Repo-root path that works when the package is run from a source checkout
+# (editable install). When the package is installed elsewhere (site-packages
+# on a deploy target), parents[2] resolves outside the repo and this path
+# won't exist — _resolve_config_path() handles that.
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "default.toml"
 
 
@@ -105,8 +110,33 @@ def _dataclass_from_mapping(cls: type[Any], data: dict[str, Any] | None) -> Any:
     return cls(**kwargs)
 
 
+def _resolve_config_path() -> Path | None:
+    # 1) explicit env override
+    env_path = os.environ.get("KR_CONFIG")
+    if env_path:
+        return Path(env_path)
+    # 2) repo-root path (works in source checkouts / editable installs)
+    if DEFAULT_CONFIG_PATH.is_file():
+        return DEFAULT_CONFIG_PATH
+    # 3) configs/default.toml under the current working directory
+    # (works in deploys where the runtime cwd is the repo root, e.g. OSC)
+    cwd_path = Path.cwd() / "configs" / "default.toml"
+    if cwd_path.is_file():
+        return cwd_path
+    return None
+
+
 def load_config(path: str | Path | None = None) -> AppConfig:
-    config_path = Path(path) if path else DEFAULT_CONFIG_PATH
+    if path is not None:
+        config_path: Path | None = Path(path)
+    else:
+        config_path = _resolve_config_path()
+
+    if config_path is None:
+        # No config available on this host — fall back to dataclass defaults
+        # so the API can boot.
+        return AppConfig()
+
     raw = tomllib.loads(config_path.read_text(encoding="utf-8"))
 
     return AppConfig(
