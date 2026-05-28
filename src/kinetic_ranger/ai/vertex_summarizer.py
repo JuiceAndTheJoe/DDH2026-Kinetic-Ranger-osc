@@ -1,17 +1,30 @@
 import os
 from typing import List, Optional
 
-from google import genai
-from google.auth.exceptions import GoogleAuthError
-from google.genai.errors import APIError
+# google-genai is an optional dependency (the `ai` extra). Import lazily so
+# the rest of the app — and the FastAPI process on deploy targets without
+# the extra — can boot. Endpoints that actually summarize will fail at call
+# time with a clean error if the extra wasn't installed.
+try:
+    from google import genai  # type: ignore
+    from google.auth.exceptions import GoogleAuthError  # type: ignore
+    from google.genai.errors import APIError  # type: ignore
+
+    _GENAI_AVAILABLE = True
+    _GENAI_EXCEPTIONS: tuple = (APIError, GoogleAuthError, ValueError, RuntimeError)
+except ImportError:  # pragma: no cover - exercised only when extra missing
+    genai = None  # type: ignore[assignment]
+    _GENAI_AVAILABLE = False
+    _GENAI_EXCEPTIONS = (ValueError, RuntimeError)
 
 PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
 LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "global")
 MODEL = os.getenv("GOOGLE_GENAI_MODEL", "gemini-2.5-flash")
-_GENAI_EXCEPTIONS = (APIError, GoogleAuthError, ValueError, RuntimeError)
 
 
 def ai_summaries_enabled() -> bool:
+    if not _GENAI_AVAILABLE:
+        return False
     return os.getenv("KR_AI_SUMMARIES_ENABLED", "false").lower() == "true"
 
 
@@ -31,6 +44,10 @@ class VertexAISummarizer:
         self.model = model or MODEL
 
     def _generate(self, prompt: str, location: str) -> str:
+        if not _GENAI_AVAILABLE:
+            raise AISummaryError(
+                "google-genai is not installed; install the 'ai' extra to enable AI summaries."
+            )
         client = genai.Client(
             vertexai=True,
             project=self.project,
